@@ -14,15 +14,15 @@ fn main() {
 }
 
 fn listen(port: u16) {
-  let mut server = victorem::GameServer::new(CommandHandler { id: 0 }, port).unwrap();
+  let mut server = victorem::GameServer::new(ServerGlobalData { id: 0 }, port).unwrap();
   server.run();
 }
 
-struct CommandHandler {
+struct ServerGlobalData {
     id: u32,
 }
 
-impl victorem::Game for CommandHandler {
+impl victorem::Game for ServerGlobalData {
     fn handle_command(
         &mut self,
         delta_time: Duration,

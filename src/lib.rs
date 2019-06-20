@@ -25,7 +25,10 @@ impl Resolver {
 pub struct Config {
   pub listen_ip: String,
   pub listen_port: u16,
+  pub anon_max_bytes_sent_per_ip_per_sec: usize,
+  pub trusted_ip_sources: Vec<String>,
   pub cache_dir: String,
+  pub cache_max_bytes: usize,
   pub upstream_resolvers: Vec<Resolver>,
 }
 
@@ -76,7 +79,10 @@ pub fn get_config_detail(check_etc: bool, check_user: bool, check_env: bool) -> 
   let mut c = Config {
     listen_ip: s_get_str(&settings, "listen_ip", "0.0.0.0"),
     listen_port: s_get_i64(&settings, "listen_port", 0x1de0) as u16,
+    anon_max_bytes_sent_per_ip_per_sec: s_get_i64(&settings, "anon_max_bytes_sent_per_ip_per_sec", 16384) as usize,
+    trusted_ip_sources: s_get_str_vec(&settings, "trusted_ip_sources", vec!["127.0.0.1".to_string()]),
     cache_dir: s_get_str(&settings, "cache_dir", "/tmp/dindex_cache/"),
+    cache_max_bytes: s_get_i64(&settings, "cache_max_bytes", 16384) as usize,
     upstream_resolvers: vec![],
   };
   
@@ -110,6 +116,28 @@ pub fn get_config_detail(check_etc: bool, check_user: bool, check_env: bool) -> 
   return c;
 }
 
+fn s_get_str_vec(settings: &config::Config, key: &str, default: Vec<String>) -> Vec<String> {
+  match settings.get_array(key) {
+    Ok(val_vec) => {
+      let mut s_vec: Vec<String> = vec![];
+      for val in val_vec {
+        match val.into_str() {
+          Ok(str_val) => {
+            s_vec.push(str_val);
+          }
+          Err(e) => {
+            println!("{}", e);
+          }
+        }
+      }
+      return s_vec;
+    }
+    Err(e) => {
+      println!("{}", e);
+      return default;
+    }
+  }
+}
 
 fn s_get_str(settings: &config::Config, key: &str, default: &str) -> String {
   match settings.get_str(key) {
