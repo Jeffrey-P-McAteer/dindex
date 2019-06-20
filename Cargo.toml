@@ -7,6 +7,11 @@ edition = "2018"
 [dependencies]
 config = "0.9.3"
 dirs = "2.0.1"
+victorem = "0.8.2"
+rand = "0.6.5"
+
+serde = { version = "1.0.92", features = ["derive"] }
+serde_cbor = "0.9"
 
 [lib]
 name = "dindex"

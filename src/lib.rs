@@ -1,22 +1,32 @@
 extern crate config;
 extern crate dirs;
 
+extern crate serde;
+use serde::{Serialize, Deserialize};
+
 use std::path::PathBuf;
 use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Resolver {
-  host: String,
-  port: u16,
-  max_latency_ms: usize,
+  pub host: String,
+  pub port: u16,
+  pub max_latency_ms: usize,
 }
+
+impl Resolver {
+  pub fn get_host_port_s(&self) -> String {
+    format!("{}:{}", self.host, self.port)
+  }
+}
+
 
 #[derive(Debug)]
 pub struct Config {
-  listen_ip: String,
-  listen_port: u16,
-  cache_dir: String,
-  upstream_resolvers: Vec<Resolver>,
+  pub listen_ip: String,
+  pub listen_port: u16,
+  pub cache_dir: String,
+  pub upstream_resolvers: Vec<Resolver>,
 }
 
 pub fn get_config() -> Config {
@@ -154,3 +164,10 @@ fn v_get_i64_of(src: &HashMap<String, config::Value>, key: &str, default: i64) -
     }
   }
 }
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Command {
+  pub args: Vec<String>,
+}
+
