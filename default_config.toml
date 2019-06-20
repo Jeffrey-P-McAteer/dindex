@@ -1,0 +1,19 @@
+listen_ip = "0.0.0.0"
+# 0x1de0 in hex - wanted to say "index"
+listen_port = 7648
+
+cache_dir = "/tmp/dindex_cache/"
+
+# Each of these is a single entry in the
+# list of servers which will be queried if
+# we do not know enough to answer a given query
+[[upstream_resolvers]]
+host = "dindex.jmcateer.pw"
+# Optional; we default to 7648
+port = 7648
+# Optional; we default to dropping connections after 600ms latency.
+max_latency_ms = 600
+
+
+
+
