@@ -18,9 +18,9 @@ name = "dindex"
 path = "src/lib.rs"
 
 [[bin]]
-name = "server"
+name = "dindex-server"
 path = "src/server_main.rs"
 
 [[bin]]
-name = "client"
+name = "dindex-client"
 path = "src/client_main.rs"
