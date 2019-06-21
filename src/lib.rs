@@ -196,6 +196,60 @@ fn v_get_i64_of(src: &HashMap<String, config::Value>, key: &str, default: i64) -
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Command {
-  pub args: Vec<String>,
+  // Will hold things like
+  // ["publish", "{'url':'http://mynewsite.com/', 'title':'My AWESOME site!', 'desc':'Yo everyone check out my new awesome site'}"]
+  // ["query", "{'title':'/.*awesome.*/i'}"]
+  pub args: Vec<String>
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Record {
+  pub properties: HashMap<String, String>,
+}
+
+impl Record {
+  pub fn from_str(s: &str) -> Result<Record, serde_json::error::Error> {
+    serde_json::from_str(s)
+  }
+  pub fn ephemeral(s: &str) -> Record {
+    Record {
+      properties: [
+        ("type".into(), "ephemeral".into()),
+        ("data".into(), s.into())
+      ].iter().cloned().collect()
+    }
+  }
+  // Checks if this record matches the given query record (keys match, regexes, etc.)
+  pub fn matches(&self, query_rec: &Record) -> bool {
+    use regex::Regex;
+    
+    let mut common_keys = vec![];
+    for (my_key, _) in self.properties.clone() {
+      for (their_key, _) in query_rec.properties.clone() {
+        if my_key == their_key {
+          common_keys.push(my_key.clone());
+        }
+      }
+    }
+    
+    if common_keys.len() < 1 {
+      return false; // cannot match, no common keys
+    }
+    
+    let mut matching_keys = 0;
+    let total_keys = common_keys.len();
+    
+    for common_key in common_keys {
+      let my_val = self.properties.get(&common_key).unwrap();
+      let re = Regex::new(query_rec.properties.get(&common_key).unwrap()).unwrap();
+      if re.is_match(my_val) {
+        matching_keys += 1;
+      }
+    }
+    
+    return matching_keys >= total_keys;
+    
+  }
+}
+
 
