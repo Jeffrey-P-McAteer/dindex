@@ -1,3 +1,22 @@
+/**
+ *  dIndex - a distributed, organic, mechanical index for everything
+ *  Copyright (C) 2019  Jeffrey McAteer <jeffrey.p.mcateer@gmail.com>
+ *  
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ * 
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ * 
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
 use victorem;
 use serde_cbor::from_slice;
 
@@ -9,33 +28,36 @@ use std::collections::HashMap;
 use dindex::get_config;
 use dindex::Command;
 use dindex::Record;
+use dindex::Config;
 
 fn main() {
   let config = get_config();
-  // TODO currently victorem cannot use config.listen_ip; 
-  listen(config.listen_port);
+  listen(&config);
 }
 
-fn listen(port: u16) {
+fn listen(config: &Config) {
+  // TODO currently victorem cannot use config.listen_ip; 
   let mut server = victorem::GameServer::new(
     ServerGlobalData {
+        config: config,
         last_results: None,
         records: vec![
             // TODO not this
             Record{properties: [("type".into(), "server-log".into()),("data".into(), "Server says Hello World!".into())].iter().cloned().collect()}
         ]
     },
-    port
+    config.listen_port
   ).unwrap();
   server.run();
 }
 
-struct ServerGlobalData {
+struct ServerGlobalData<'a> {
+    config: &'a Config,
     last_results: Option<Vec<Record>>,
     records: Vec<Record>,
 }
 
-impl ServerGlobalData {
+impl<'a> ServerGlobalData<'a> {
     pub fn do_operation(&mut self, args: Vec<String>, records: Vec<Record>) -> Vec<Record> {
         if let Some(arg1) = args.get(0) {
             match arg1.as_str() {
@@ -76,10 +98,10 @@ impl ServerGlobalData {
     }
 }
 
-impl victorem::Game for ServerGlobalData {
+impl<'a> victorem::Game for ServerGlobalData<'a> {
     fn handle_command(
         &mut self,
-        delta_time: Duration,
+        _delta_time: Duration,
         commands: Vec<Vec<u8>>,
         from: SocketAddr,
     ) -> victorem::ContinueRunning {
