@@ -134,9 +134,6 @@ impl<'a> victorem::Game for ServerGlobalData<'a> {
         commands: Vec<Vec<u8>>,
         from: SocketAddr,
     ) -> victorem::ContinueRunning {
-        if commands.len() < 1 {
-            thread::sleep(time::Duration::from_millis(50));
-        }
         for v in commands {
             let cmd: Command = serde_cbor::from_slice(&v).unwrap();
             println!(
@@ -169,6 +166,10 @@ impl<'a> victorem::Game for ServerGlobalData<'a> {
                 return bytes;
             }
             None => {
+                // Sleep to prevent 100% CPU thrashing
+                
+                thread::sleep(time::Duration::from_millis(20));
+                
                 return vec![];
             }
         }
