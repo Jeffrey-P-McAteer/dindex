@@ -45,8 +45,9 @@ fn instruct_resolver(r: &Resolver, cmd: &Command) {
   use std::time::{Duration, Instant};
   use rand::Rng;
   
-  let mut rng = rand::thread_rng();
+  println!("Querying {}", r.get_host_port_s());
   
+  let mut rng = rand::thread_rng();
   let mut client = victorem::ClientSocket::new(rng.gen_range(11111, 55555), r.get_host_port_s()).unwrap();
   
   client.send(serde_cbor::to_vec(cmd).unwrap()).unwrap();

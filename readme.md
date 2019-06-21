@@ -67,6 +67,13 @@ student, companies can tie keys to credit cards to prove uniqueness, whatever.
 TODO
 
 
+# Commands Jeff will forget
+
+```
+cross build --target x86_64-unknown-linux-musl
+scp ./target/x86_64-unknown-linux-musl/debug/dindex-server blog:/tmp/dindex-server
+```
+
 
 
 

@@ -24,6 +24,7 @@ use std::net::SocketAddr;
 use std::time::Duration;
 use std::{thread, time};
 use std::collections::HashMap;
+use std::{env, fs};
 
 use dindex::get_config;
 use dindex::Command;
@@ -31,6 +32,34 @@ use dindex::Record;
 use dindex::Config;
 
 fn main() {
+  let args: Vec<String> = env::args().collect();
+  if let Some(arg1) = args.get(1) {
+      if &arg1[..] == "install" {
+        let exe = env::current_exe().unwrap();
+        let exe = exe.as_path().to_string_lossy();
+        println!("Installing a systemd unit using this binary ({})", exe);
+        let contents = format!(r#"
+[Unit]
+Description=dIndex server
+After=network.target
+
+[Service]
+Type=simple
+# User=root
+WorkingDirectory=/tmp/
+ExecStart={}
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
+"#, exe);
+        fs::write("/etc/systemd/system/dindex.service", contents).expect("Unable to write file");
+        println!("Start + enable the server with:");
+        println!("  sudo systemctl enable --now dindex");
+        return;
+      }
+  }
   let config = get_config();
   listen(&config);
 }
