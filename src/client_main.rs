@@ -31,9 +31,38 @@ use dindex::Record;
 
 fn main() {
   let args: Vec<String> = env::args().collect();
+  if args.contains(&"-h".to_string()) || args.contains(&"--help".to_string()) {
+    println!(include_str!("client_readme.md"));
+    return;
+  }
   let config = get_config();
+  
+  // Parse + mutate arguments
+  let mut sent_args: Vec<String> = vec![];
+  let mut consumed_idxes: Vec<usize> = vec![];
+  match args.iter().position(|s| s == "--webpage") {
+      Some(idx) => {
+        // Generate a webpage record using the next (optional) args
+        consumed_idxes.push(idx);
+        let idx = idx + 1;
+        if idx < args.len() {
+          // We have 
+        }
+      }
+      None => { }
+  }
+  
+  // Copy all unconsumed arguments verbatim
+  let mut j = 0;
+  for i in 1..args.len() {
+    if !consumed_idxes.contains(&i) {
+      sent_args.insert(j, args[i].clone());
+      j += 1;
+    }
+  }
+  
   let cmd = Command {
-    args: args[1..].to_vec()
+    args: sent_args
   };
   for resolver in config.upstream_resolvers {
     instruct_resolver(&resolver, &cmd);

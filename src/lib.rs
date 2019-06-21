@@ -46,6 +46,8 @@ pub struct Config {
   pub listen_port: u16,
   pub anon_max_bytes_sent_per_ip_per_sec: usize,
   pub trusted_ip_sources: Vec<String>,
+  pub identity_private_key_file: String,
+  pub identity_public_key_file: String,
   pub cache_dir: String,
   pub cache_max_bytes: usize,
   pub upstream_resolvers: Vec<Resolver>,
@@ -96,13 +98,24 @@ pub fn get_config_detail(check_etc: bool, check_user: bool, check_env: bool) -> 
   
   // Now read in, setting defaults where empty
   let mut c = Config {
-    listen_ip: s_get_str(&settings, "listen_ip", "0.0.0.0"),
-    listen_port: s_get_i64(&settings, "listen_port", 0x1de0) as u16,
-    anon_max_bytes_sent_per_ip_per_sec: s_get_i64(&settings, "anon_max_bytes_sent_per_ip_per_sec", 16384) as usize,
-    trusted_ip_sources: s_get_str_vec(&settings, "trusted_ip_sources", vec!["127.0.0.1".to_string()]),
-    cache_dir: s_get_str(&settings, "cache_dir", "/tmp/dindex_cache/"),
-    cache_max_bytes: s_get_i64(&settings, "cache_max_bytes", 16384) as usize,
-    upstream_resolvers: vec![],
+    listen_ip:
+        s_get_str(&settings, "listen_ip", "0.0.0.0"),
+    listen_port:
+        s_get_i64(&settings, "listen_port", 0x1de0) as u16,
+    anon_max_bytes_sent_per_ip_per_sec:
+        s_get_i64(&settings, "anon_max_bytes_sent_per_ip_per_sec", 16384) as usize,
+    trusted_ip_sources:
+        s_get_str_vec(&settings, "trusted_ip_sources", vec!["127.0.0.1".to_string()]),
+    identity_private_key_file:
+        s_get_str(&settings, "identity_private_key_file", "/dev/null"),
+    identity_public_key_file:
+        s_get_str(&settings, "identity_public_key_file", "/dev/null"),
+    cache_dir:
+        s_get_str(&settings, "cache_dir", "/tmp/dindex_cache/"),
+    cache_max_bytes:
+        s_get_i64(&settings, "cache_max_bytes", 16384) as usize,
+    upstream_resolvers:
+        vec![],
   };
   
   match settings.get_array("upstream_resolvers") {

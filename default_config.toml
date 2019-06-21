@@ -18,6 +18,8 @@ authorized_keys_file = "/tmp/dindex_authorized_keys"
 authorized_keys_sql_backend_url = "postgres://username:password@localhost/diesel_demo"
 authorized_keys_sql_query = "SELECT * FROM auth_keys_table WHERE key_string  = {}"
 
+identity_private_key_file = "/dev/null"
+identity_public_key_file = "/dev/null"
 
 cache_dir = "/tmp/dindex_cache/"
 cache_max_bytes = 4294967296
