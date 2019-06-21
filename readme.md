@@ -64,15 +64,33 @@ student, companies can tie keys to credit cards to prove uniqueness, whatever.
 
 # Example use
 
-TODO
+## Publishing a record
+
+```bash
+dindex-client publish '{"title":"Some good article", "url":"http://jmcateer.pw/dev/null"}'
+```
+
+## Querying records
+
+```bash
+dindex-client query '{"title":"(?i).*good.*"}'
+```
+
+When building a query, results are computed by:
+
+1. List all shared keys between Query Record and Other Record
+2. If no shared keys, Other Record is not a match
+3. For all shared keys, check if Query Record value regex matches Other Record
+4. If all regexes match, Other Record is a match
 
 
 # Commands Jeff will forget
 
-```
+```bash
 cross build --target x86_64-unknown-linux-musl
 scp ./target/x86_64-unknown-linux-musl/debug/dindex-server blog:/tmp/dindex-server
 ```
+
 
 
 
