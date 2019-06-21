@@ -168,7 +168,7 @@ impl<'a> victorem::Game for ServerGlobalData<'a> {
             None => {
                 // Sleep to prevent 100% CPU thrashing
                 
-                thread::sleep(time::Duration::from_millis(20));
+                thread::sleep(time::Duration::from_millis(50));
                 
                 return vec![];
             }
