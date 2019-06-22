@@ -55,7 +55,7 @@ fn instruct_resolver(r: &Resolver, args: &Args) {
   let mut rng = rand::thread_rng();
   let mut client = victorem::ClientSocket::new(rng.gen_range(11111, 55555), r.get_host_port_s()).unwrap();
   
-  client.send(serde_cbor::to_vec(args).unwrap()).unwrap();
+  client.send(serde_cbor::to_vec(&args.clone().into_svr_args()).unwrap()).unwrap();
   
   let timer = Instant::now();
   let period = Duration::from_millis(r.max_latency_ms as u64);

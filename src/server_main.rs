@@ -28,7 +28,7 @@ use std::{env, fs};
 
 use dindex::get_config;
 use dindex::Record;
-use dindex::Args;
+use dindex::SvrArgs;
 use dindex::Config;
 
 fn main() {
@@ -45,7 +45,7 @@ After=network.target
 
 [Service]
 Type=simple
-# User=root
+User=nobody
 WorkingDirectory=/tmp/
 ExecStart={}
 Restart=on-failure
@@ -80,6 +80,7 @@ fn listen(config: &Config) {
   server.run();
 }
 
+#[allow(dead_code)]
 struct ServerGlobalData<'a> {
     config: &'a Config,
     last_results: Option<Vec<Record>>,
@@ -87,7 +88,7 @@ struct ServerGlobalData<'a> {
 }
 
 impl<'a> ServerGlobalData<'a> {
-    pub fn do_operation(&mut self, args: Args) -> Vec<Record> {
+    pub fn do_operation(&mut self, args: SvrArgs) -> Vec<Record> {
         match args.action {
             dindex::ArgsAction::query => {
                 let mut results: Vec<Record> = vec![];
@@ -124,7 +125,7 @@ impl<'a> victorem::Game for ServerGlobalData<'a> {
         from: SocketAddr,
     ) -> victorem::ContinueRunning {
         for v in commands {
-            let args: Args = serde_cbor::from_slice(&v).unwrap();
+            let args: SvrArgs = serde_cbor::from_slice(&v).unwrap();
             println!(
                 "From Client: {} {:?}",
                 from,

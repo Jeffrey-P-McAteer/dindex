@@ -292,7 +292,7 @@ impl ::std::str::FromStr for Record {
 
 arg_enum! {
   #[allow(non_camel_case_types)]
-  #[derive(Debug, Serialize, Deserialize)]
+  #[derive(Debug, Serialize, Deserialize, Clone)]
   pub enum ArgsAction {
       query,
       publish
@@ -300,12 +300,16 @@ arg_enum! {
 }
 
 
-#[derive(StructOpt, Debug, Serialize, Deserialize)]
+#[derive(StructOpt, Debug, Serialize, Deserialize, Clone)]
 #[structopt(name = "dindex", about = "A distributed index for anything and everything")]
 pub struct Args {
   /// Print longer documentation
   #[structopt(short = "d", long = "docs")]
   pub docs: bool,
+  
+  /// Verbose mode (-v, -vv, -vvv, etc.)
+  #[structopt(short = "v", long = "verbose", parse(from_occurrences))]
+  verbose: u8,
   
   #[structopt(raw(possible_values = "&ArgsAction::variants()", case_insensitive = "true"))]
   pub action: ArgsAction,
@@ -314,8 +318,19 @@ pub struct Args {
   
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SvrArgs {
+  pub action: ArgsAction,
+  pub records: Vec<Record>,
+}
+
 impl Args {
-  
+  pub fn into_svr_args(self) -> SvrArgs {
+    SvrArgs {
+      action: self.action,
+      records: self.records
+    }
+  }
 }
 
 
