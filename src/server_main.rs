@@ -18,18 +18,18 @@
  */
 
 use victorem;
-use serde_cbor::from_slice;
+//use serde_cbor::from_slice;
 
 use std::net::SocketAddr;
 use std::time::Duration;
 use std::{thread, time};
-use std::collections::HashMap;
+//use std::collections::HashMap;
 use std::{env, fs};
 
-use dindex::get_config;
+use dindex::config::get_config;
+use dindex::config::Config;
 use dindex::Record;
 use dindex::SvrArgs;
-use dindex::Config;
 
 fn main() {
   let args: Vec<String> = env::args().collect();
@@ -61,6 +61,7 @@ WantedBy=multi-user.target
       }
   }
   let config = get_config();
+  println!("Listening for connections on UDP 0.0.0.0:{}", config.listen_port);
   listen(&config);
 }
 

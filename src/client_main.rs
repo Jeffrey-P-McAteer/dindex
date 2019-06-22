@@ -26,8 +26,8 @@ use structopt::StructOpt;
 
 use std::thread;
 
-use dindex::get_config;
-use dindex::Resolver;
+use dindex::config::get_config;
+use dindex::config::Resolver;
 use dindex::Record;
 use dindex::Args;
 
