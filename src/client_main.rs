@@ -25,6 +25,7 @@ use rand;
 use structopt::StructOpt;
 
 extern crate url_crawler;
+extern crate webpage;
 
 use std::thread;
 
@@ -119,22 +120,74 @@ fn instruct_resolver(r: &Resolver, args: &Args) {
 
 }
 
-fn do_publish_site_pages(_config: Config, args: Args) {
+fn publish_to_resolver(r: &Resolver, record: &Record) {
+  
+}
+
+fn do_publish_site_pages(config: Config, args: Args) {
   use url_crawler::*;
+  use std::{thread, time};
+  
   match args.publish_site_pages {
     Some(url) => {
-      println!("Crawling {}", url);
+      println!("Crawling down to {} pages at {}", args.max, url);
       let crawler = Crawler::new(url)
         .threads(4)
         .crawl();
       
+      let mut new_records: Vec<Record> = vec![];
+      
+      let mut i = 0;
       for file in crawler {
-        println!("{:#?}", file);
+        println!("Crawled {:?}", file);
+        new_records.push(urlentry_to_record(file));
+        i += 1;
+        if i > args.max {
+          break;
+        }
+      }
+      
+      let mut threads = vec![];
+      for new_record in &new_records {
+        println!("Publishing {:?}", new_record);
+        for resolver in &config.upstream_resolvers {
+          let resolver = resolver.clone(); // 
+          let new_record = new_record.clone(); // OOF?
+          let th = thread::spawn(move || {
+            publish_to_resolver(&resolver, &new_record);
+          });
+          threads.push(th);
+        }
+        // Let some of those things go out before we jump forward
+        thread::sleep(time::Duration::from_millis(20));
+      }
+      
+      // Wait on all threads
+      for th in threads {
+        th.join().unwrap();
       }
       
     }
     None => {
       panic!("Should never happen");
     }
+  }
+}
+
+fn urlentry_to_record(url: url_crawler::UrlEntry) -> Record {
+  use webpage::{Webpage, WebpageOptions};
+  use url_crawler::UrlEntry;
+  
+  match url {
+    UrlEntry::Html{url} => {
+      let info = Webpage::from_url(url.as_str(), WebpageOptions::default()).expect("Could not read from URL");
+      let html = info.html;
+      Record::webpage_record(
+        url.to_string(),
+        html.title.unwrap_or(url.to_string()),
+        html.description.unwrap_or(String::new()),
+      )
+    }
+    _ => Record::empty() // TODO
   }
 }

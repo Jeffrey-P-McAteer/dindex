@@ -58,7 +58,15 @@ impl Record {
       ].iter().cloned().collect()
     }
   }
-  
+  pub fn webpage_record(url: String, title: String, description: String) -> Record {
+    Record {
+      properties: [ // see ctypes::WEBPAGE_KEYS
+        ("url".into(), url),
+        ("title".into(), title),
+        ("description".into(), description),
+      ].iter().cloned().collect()
+    }
+  }
   pub fn result_end_record() -> Record {
     Record {
       properties: [
@@ -234,6 +242,9 @@ pub struct Args {
   // Flags
   #[structopt(long = "publish-site-pages")]
   pub publish_site_pages: Option<String>,
+  
+  #[structopt(long = "max", default_value = "20")]
+  pub max: usize,
   
 }
 

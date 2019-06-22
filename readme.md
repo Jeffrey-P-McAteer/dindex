@@ -49,7 +49,7 @@ needs to have all records for the records to be available to clients.
 
 Because dIndex uses UDP for communication it could potentially be used
 in a DoS amplification attack. To prevent this `dindex-server` will have
-a whitelist of RSA, ECDSA, and GPG keys that it trusts.
+a whitelist of RSA, ECDSA, and GPG keys that it trusts set in `dindex.toml`.
 By default the size of responses will be limited to the number of bytes received from the client, and anonomous clients will pad their queries accordingly. If the query comes in and is signed by a trusted key, this limitation is removed.
 
 Other limits such as the total bytes per IP per second may be set by the `dindex-server` operator,

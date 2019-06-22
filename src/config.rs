@@ -27,7 +27,7 @@ extern crate clap;
 use std::path::PathBuf;
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Resolver {
   pub host: String,
   pub port: u16,
