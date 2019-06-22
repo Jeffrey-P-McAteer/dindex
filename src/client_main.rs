@@ -89,7 +89,7 @@ fn instruct_resolver(r: &Resolver, args: &Args) {
           i += 1;
         }
         if !is_empty {
-          break;
+          //break;
         }
       }
       Err(e) => {
