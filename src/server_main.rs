@@ -96,19 +96,15 @@ impl<'a> ServerGlobalData<'a> {
                 // This is possibly the slowest possible search impl.
                 for record in self.records.clone() { // TODO not this
                     // Check if this record matches any of the search records
-                    for search_record in args.records.clone() { // TODO not this either
-                        if record.matches(&search_record) {
-                            results.push(record);
-                            break;
-                        }
+                    if record.matches(&args.record) {
+                        results.push(record);
+                        break;
                     }
                 }
                 return results;
             }
             dindex::ArgsAction::publish => {
-                for given_record in args.records {
-                    self.records.push(given_record);
-                }
+                self.records.push(args.record);
                 return vec![
                     Record::ephemeral("Published")
                 ];

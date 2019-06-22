@@ -116,21 +116,21 @@ pub struct Args {
   #[structopt(raw(possible_values = "&ArgsAction::variants()", case_insensitive = "true"))]
   pub action: ArgsAction,
   
-  pub records: Vec<Record>,
+  pub record: Record,
   
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SvrArgs {
   pub action: ArgsAction,
-  pub records: Vec<Record>,
+  pub record: Record,
 }
 
 impl Args {
   pub fn into_svr_args(self) -> SvrArgs {
     SvrArgs {
       action: self.action,
-      records: self.records
+      record: self.record
     }
   }
 }
