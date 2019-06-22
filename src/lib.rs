@@ -34,6 +34,7 @@ use std::collections::HashMap;
 use std::env;
 
 pub mod config;
+pub mod ctypes;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Record {
@@ -72,6 +73,10 @@ impl Record {
       return result_end == "true";
     }
     return false;
+  }
+  
+  pub fn is_empty(&self) -> bool {
+    self.properties.is_empty()
   }
   
   pub fn put_str(&mut self, key: &str, val: &str) {
@@ -167,22 +172,26 @@ impl Record {
 
 impl ::std::str::FromStr for Record {
   type Err = serde_json::error::Error;
+  
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     
-    if s == "webpage" {
-      println!("got webpage!");
-      let args: Vec<String> = env::args().collect();
-      let i = args.iter().position(|r| r == "webpage").unwrap();
-      if let Some(url) = args.get(i+1) {
+    for (ctype_name, ctype_keys) in ctypes::get_all_ctypes() {
+      if s == ctype_name {
+        let args: Vec<String> = env::args().collect();
+        let mut i = args.iter().position(|r| r == ctype_name).unwrap();
         let mut record = Record::empty();
-        record.put_str("url", url);
-        if let Some(title) = args.get(i+2) {
-          record.put_str("title", title);
-          if let Some(description) = args.get(i+3) {
-            record.put_str("description", description);
+        for key in ctype_keys {
+          if let Some(val) = args.get(i+1) {
+            record.put_str(key, val);
+            i += 1;
+          }
+          else {
+            break;
           }
         }
-        return Ok(record);
+        if !record.is_empty() {
+          return Ok(record);
+        }
       }
     }
     
@@ -217,9 +226,14 @@ pub struct Args {
   #[structopt(raw(possible_values = "&ArgsAction::variants()", case_insensitive = "true"))]
   pub action: ArgsAction,
   
-  pub record: Record,
+  pub record: Option<Record>,
   
+  #[structopt(last = true)]
   pub extra_args: Vec<String>,
+  
+  // Flags
+  #[structopt(long = "publish-site-pages")]
+  pub publish_site_pages: Option<String>,
   
 }
 
@@ -233,7 +247,7 @@ impl Args {
   pub fn into_svr_args(self) -> SvrArgs {
     SvrArgs {
       action: self.action,
-      record: self.record
+      record: self.record.expect("No record arg given but expected")
     }
   }
 }

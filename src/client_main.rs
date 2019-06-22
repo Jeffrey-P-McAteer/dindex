@@ -24,24 +24,32 @@ use rand;
 
 use structopt::StructOpt;
 
+extern crate url_crawler;
+
 use std::thread;
 
 use dindex::config::get_config;
 use dindex::config::Resolver;
+use dindex::config::Config;
 use dindex::Record;
 use dindex::Args;
 
 fn main() {
   let args = Args::from_args();
+  let config = get_config();
   
   println!("{:?}", args);
+  
+  if args.publish_site_pages.is_some() {
+    do_publish_site_pages(config, args);
+    return;
+  }
   
   if args.docs {
     println!(include_str!("client_readme.md"));
     return;
   }
   
-  let config = get_config();
   let mut threads = vec![];
   for resolver in config.upstream_resolvers {
     let a = args.clone(); // TODO not this
@@ -111,4 +119,22 @@ fn instruct_resolver(r: &Resolver, args: &Args) {
 
 }
 
-
+fn do_publish_site_pages(_config: Config, args: Args) {
+  use url_crawler::*;
+  match args.publish_site_pages {
+    Some(url) => {
+      println!("Crawling {}", url);
+      let crawler = Crawler::new(url)
+        .threads(4)
+        .crawl();
+      
+      for file in crawler {
+        println!("{:#?}", file);
+      }
+      
+    }
+    None => {
+      panic!("Should never happen");
+    }
+  }
+}
