@@ -17,6 +17,9 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#[macro_use]
+extern crate lazy_static;
+
 use victorem;
 //use serde_cbor::from_slice;
 
@@ -93,10 +96,11 @@ impl<'a> ServerGlobalData<'a> {
         match args.action {
             dindex::ArgsAction::query => {
                 let mut results: Vec<Record> = vec![];
+                let query_map = args.record.gen_query_map();
                 // This is possibly the slowest possible search impl.
                 for record in self.records.clone() { // TODO not this
                     // Check if this record matches any of the search records
-                    if record.matches(&args.record) {
+                    if record.matches_faster(&query_map) {
                         results.push(record);
                         break;
                     }

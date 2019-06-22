@@ -28,6 +28,8 @@ use clap::arg_enum;
 
 use structopt::StructOpt;
 
+use regex::Regex;
+
 use std::collections::HashMap;
 
 pub mod config;
@@ -49,9 +51,45 @@ impl Record {
       ].iter().cloned().collect()
     }
   }
+  
+  pub fn gen_query_map(&self) -> HashMap<String, Regex> {
+    let mut map : HashMap<String, Regex> = HashMap::new();
+    for (key, val) in &self.properties {
+      map.insert(key.to_string(), Regex::new(val).unwrap());
+    }
+    return map;
+  }
+  
+  pub fn matches_faster(&self, compiled_query: &HashMap<String, Regex>) -> bool {
+    let mut common_keys = vec![];
+    for (my_key, _) in &self.properties {
+      for (their_key, _) in compiled_query {
+        if my_key == their_key {
+          common_keys.push(my_key.clone());
+        }
+      }
+    }
+    
+    if common_keys.len() < 1 {
+      return false; // cannot match, no common keys
+    }
+    
+    let mut matching_keys = 0;
+    let total_keys = common_keys.len();
+    
+    for common_key in common_keys {
+      let my_val = self.properties.get(&common_key).unwrap();
+      let re = compiled_query.get(&common_key).unwrap();
+      if re.is_match(my_val) {
+        matching_keys += 1;
+      }
+    }
+    
+    return matching_keys >= total_keys;
+  }
+  
   // Checks if this record matches the given query record (keys match, regexes, etc.)
   pub fn matches(&self, query_rec: &Record) -> bool {
-    use regex::Regex;
     
     let mut common_keys = vec![];
     for (my_key, _) in &self.properties {
