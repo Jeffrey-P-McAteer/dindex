@@ -104,6 +104,7 @@ impl<'a> ServerGlobalData<'a> {
                         results.push(record.clone());
                     }
                 }
+                results.push(Record::result_end_record());
                 return results;
             }
             dindex::ArgsAction::publish => {

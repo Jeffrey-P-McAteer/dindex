@@ -82,14 +82,17 @@ fn instruct_resolver(r: &Resolver, args: &Args) {
     match client.recv() {
       Ok(bytes) => {
         let results: Vec<Record> = serde_cbor::from_slice(&bytes).unwrap_or(vec![]);
-        let is_empty = results.len() < 1;
+        let mut should_exit = false;
         let mut i = 0;
         for result in results {
           println!("Result {}: {:?}", i, result.properties);
           i += 1;
+          if !should_exit && result.is_end_record() {
+            should_exit = true;
+          }
         }
-        if !is_empty {
-          //break;
+        if should_exit {
+          break;
         }
       }
       Err(e) => {

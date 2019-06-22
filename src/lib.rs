@@ -58,6 +58,22 @@ impl Record {
     }
   }
   
+  pub fn result_end_record() -> Record {
+    Record {
+      properties: [
+        ("type".into(), "ephemeral".into()),
+        ("result-end".into(), "true".into())
+      ].iter().cloned().collect()
+    }
+  }
+  
+  pub fn is_end_record(&self) -> bool {
+    if let Some(result_end) = self.get_str("result-end") {
+      return result_end == "true";
+    }
+    return false;
+  }
+  
   pub fn put_str(&mut self, key: &str, val: &str) {
     self.put(key.to_string(), val.to_string());
   }
@@ -66,11 +82,15 @@ impl Record {
     self.properties.insert(key, val);
   }
   
-  pub fn get_ref(&mut self, key: String) -> Option<&String> {
+  pub fn get_ref(&self, key: String) -> Option<&String> {
     self.properties.get(&key)
   }
   
-  pub fn get(&mut self, key: String) -> Option<String> {
+  pub fn get_str(&self, key: &str) -> Option<String> {
+    self.get(key.to_string())
+  }
+  
+  pub fn get(&self, key: String) -> Option<String> {
     match self.properties.get(&key) {
       Some(str_ref) => Some(str_ref.to_string()),
       None => None
