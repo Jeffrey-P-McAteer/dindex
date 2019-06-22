@@ -31,6 +31,7 @@ use structopt::StructOpt;
 use regex::Regex;
 
 use std::collections::HashMap;
+use std::env;
 
 pub mod config;
 
@@ -40,6 +41,11 @@ pub struct Record {
 }
 
 impl Record {
+  pub fn empty() -> Record {
+    Record {
+      properties: HashMap::new()
+    }
+  }
   pub fn from_str(s: &str) -> Result<Record, serde_json::error::Error> {
     serde_json::from_str(s)
   }
@@ -49,6 +55,25 @@ impl Record {
         ("type".into(), "ephemeral".into()),
         ("data".into(), s.into())
       ].iter().cloned().collect()
+    }
+  }
+  
+  pub fn put_str(&mut self, key: &str, val: &str) {
+    self.put(key.to_string(), val.to_string());
+  }
+  
+  pub fn put(&mut self, key: String, val: String) {
+    self.properties.insert(key, val);
+  }
+  
+  pub fn get_ref(&mut self, key: String) -> Option<&String> {
+    self.properties.get(&key)
+  }
+  
+  pub fn get(&mut self, key: String) -> Option<String> {
+    match self.properties.get(&key) {
+      Some(str_ref) => Some(str_ref.to_string()),
+      None => None
     }
   }
   
@@ -123,6 +148,24 @@ impl Record {
 impl ::std::str::FromStr for Record {
   type Err = serde_json::error::Error;
   fn from_str(s: &str) -> Result<Self, Self::Err> {
+    
+    if s == "webpage" {
+      println!("got webpage!");
+      let args: Vec<String> = env::args().collect();
+      let i = args.iter().position(|r| r == "webpage").unwrap();
+      if let Some(url) = args.get(i+1) {
+        let mut record = Record::empty();
+        record.put_str("url", url);
+        if let Some(title) = args.get(i+2) {
+          record.put_str("title", title);
+          if let Some(description) = args.get(i+3) {
+            record.put_str("description", description);
+          }
+        }
+        return Ok(record);
+      }
+    }
+    
     let props: HashMap<String, String> = serde_json::from_str(s)?;
     Ok(Record {
       properties: props
@@ -155,6 +198,8 @@ pub struct Args {
   pub action: ArgsAction,
   
   pub record: Record,
+  
+  pub extra_args: Vec<String>,
   
 }
 
