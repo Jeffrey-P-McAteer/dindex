@@ -17,59 +17,35 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-use serde::{Serialize, Deserialize};
+extern crate structopt;
+
 use victorem;
 use rand;
 
-use std::env;
+use structopt::StructOpt;
 
 use dindex::get_config;
 use dindex::Resolver;
-use dindex::Config;
-use dindex::Command;
 use dindex::Record;
+use dindex::Args;
 
 fn main() {
-  let args: Vec<String> = env::args().collect();
-  if args.contains(&"-h".to_string()) || args.contains(&"--help".to_string()) {
+  let args = Args::from_args();
+  
+  println!("{:?}", args);
+  
+  if args.docs {
     println!(include_str!("client_readme.md"));
     return;
   }
+  
   let config = get_config();
-  
-  // Parse + mutate arguments
-  let mut sent_args: Vec<String> = vec![];
-  let mut consumed_idxes: Vec<usize> = vec![];
-  match args.iter().position(|s| s == "--webpage") {
-      Some(idx) => {
-        // Generate a webpage record using the next (optional) args
-        consumed_idxes.push(idx);
-        let idx = idx + 1;
-        if idx < args.len() {
-          // We have 
-        }
-      }
-      None => { }
-  }
-  
-  // Copy all unconsumed arguments verbatim
-  let mut j = 0;
-  for i in 1..args.len() {
-    if !consumed_idxes.contains(&i) {
-      sent_args.insert(j, args[i].clone());
-      j += 1;
-    }
-  }
-  
-  let cmd = Command {
-    args: sent_args
-  };
   for resolver in config.upstream_resolvers {
-    instruct_resolver(&resolver, &cmd);
+    instruct_resolver(&resolver, &args);
   }
 }
 
-fn instruct_resolver(r: &Resolver, cmd: &Command) {
+fn instruct_resolver(r: &Resolver, args: &Args) {
   use std::{thread, time};
   use std::time::{Duration, Instant};
   use rand::Rng;
@@ -79,7 +55,7 @@ fn instruct_resolver(r: &Resolver, cmd: &Command) {
   let mut rng = rand::thread_rng();
   let mut client = victorem::ClientSocket::new(rng.gen_range(11111, 55555), r.get_host_port_s()).unwrap();
   
-  client.send(serde_cbor::to_vec(cmd).unwrap()).unwrap();
+  client.send(serde_cbor::to_vec(args).unwrap()).unwrap();
   
   let timer = Instant::now();
   let period = Duration::from_millis(r.max_latency_ms as u64);

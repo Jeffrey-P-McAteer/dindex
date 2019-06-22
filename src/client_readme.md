@@ -121,4 +121,3 @@ Query Objects
      {{"name": "Jeffrey McAteer"}}
   would receive:
      {{"name": "Jeffrey McAteer", "phone": "555-444-2222"}}
-  

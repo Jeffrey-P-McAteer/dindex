@@ -23,6 +23,11 @@ extern crate dirs;
 extern crate serde;
 use serde::{Serialize, Deserialize};
 
+extern crate clap;
+use clap::arg_enum;
+
+use structopt::StructOpt;
+
 use std::path::PathBuf;
 use std::collections::HashMap;
 
@@ -225,15 +230,6 @@ fn v_get_i64_of(src: &HashMap<String, config::Value>, key: &str, default: i64) -
   }
 }
 
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Command {
-  // Will hold things like
-  // ["publish", "{'url':'http://mynewsite.com/', 'title':'My AWESOME site!', 'desc':'Yo everyone check out my new awesome site'}"]
-  // ["query", "{'title':'/.*awesome.*/i'}"]
-  pub args: Vec<String>
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Record {
   pub properties: HashMap<String, String>,
@@ -283,5 +279,44 @@ impl Record {
     
   }
 }
+
+impl ::std::str::FromStr for Record {
+  type Err = serde_json::error::Error;
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    let props: HashMap<String, String> = serde_json::from_str(s)?;
+    Ok(Record {
+      properties: props
+    })
+  }
+}
+
+arg_enum! {
+  #[allow(non_camel_case_types)]
+  #[derive(Debug, Serialize, Deserialize)]
+  pub enum ArgsAction {
+      query,
+      publish
+  }
+}
+
+
+#[derive(StructOpt, Debug, Serialize, Deserialize)]
+#[structopt(name = "dindex", about = "A distributed index for anything and everything")]
+pub struct Args {
+  /// Print longer documentation
+  #[structopt(short = "d", long = "docs")]
+  pub docs: bool,
+  
+  #[structopt(raw(possible_values = "&ArgsAction::variants()", case_insensitive = "true"))]
+  pub action: ArgsAction,
+  
+  pub records: Vec<Record>,
+  
+}
+
+impl Args {
+  
+}
+
 
 

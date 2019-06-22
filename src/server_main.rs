@@ -27,8 +27,8 @@ use std::collections::HashMap;
 use std::{env, fs};
 
 use dindex::get_config;
-use dindex::Command;
 use dindex::Record;
+use dindex::Args;
 use dindex::Config;
 
 fn main() {
@@ -87,43 +87,32 @@ struct ServerGlobalData<'a> {
 }
 
 impl<'a> ServerGlobalData<'a> {
-    pub fn do_operation(&mut self, args: Vec<String>, records: Vec<Record>) -> Vec<Record> {
-        if let Some(arg1) = args.get(0) {
-            match arg1.as_str() {
-                "query" => {
-                    let mut results: Vec<Record> = vec![];
-                    // This is possibly the slowest possible search impl.
-                    for record in self.records.clone() { // TODO not this
-                        // Check if this record matches any of the search records
-                        for search_record in records.clone() { // TODO not this either
-                            if record.matches(&search_record) {
-                                results.push(record);
-                                break;
-                            }
+    pub fn do_operation(&mut self, args: Args) -> Vec<Record> {
+        match args.action {
+            dindex::ArgsAction::query => {
+                let mut results: Vec<Record> = vec![];
+                // This is possibly the slowest possible search impl.
+                for record in self.records.clone() { // TODO not this
+                    // Check if this record matches any of the search records
+                    for search_record in args.records.clone() { // TODO not this either
+                        if record.matches(&search_record) {
+                            results.push(record);
+                            break;
                         }
                     }
-                    return results;
                 }
-                "publish" => {
-                    for given_record in records {
-                        self.records.push(given_record);
-                    }
-                    return vec![
-                        Record::ephemeral("Published")
-                    ];
+                return results;
+            }
+            dindex::ArgsAction::publish => {
+                for given_record in args.records {
+                    self.records.push(given_record);
                 }
-                _ => {
-                    return vec![
-                        Record::ephemeral(format!("Unknown command {}", arg1).as_str())
-                    ];
-                }
+                return vec![
+                    Record::ephemeral("Published")
+                ];
             }
         }
-        else {
-            return vec![
-                Record::ephemeral("No command given (valid commands are 'query', 'publish', )")
-            ];
-        }
+        
     }
 }
 
@@ -135,25 +124,14 @@ impl<'a> victorem::Game for ServerGlobalData<'a> {
         from: SocketAddr,
     ) -> victorem::ContinueRunning {
         for v in commands {
-            let cmd: Command = serde_cbor::from_slice(&v).unwrap();
+            let args: Args = serde_cbor::from_slice(&v).unwrap();
             println!(
                 "From Client: {} {:?}",
                 from,
-                cmd,
+                args,
             );
-            let mut args: Vec<String> = vec![];
-            let mut records: Vec<Record> = vec![];
-            for arg in cmd.args {
-                match Record::from_str(&format!("{{\"properties\": {} }}", arg)) { // TODO fix this garbage hack
-                    Ok(r) => {
-                        records.push(r);
-                    }
-                    Err(_e) => {
-                        args.push(arg);
-                    }
-                }
-            }
-            self.last_results = Some(self.do_operation(args, records));
+            
+            self.last_results = Some(self.do_operation(args));
         }
         true
     }
