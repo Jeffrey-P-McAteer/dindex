@@ -59,21 +59,23 @@ pub struct Config {
 }
 
 pub fn get_config() -> Config {
-  get_config_detail(true, true, true)
+  get_config_detail(false, true, true, true)
 }
 
 /**
  * Reads in config from files + environment variables.
  */
-pub fn get_config_detail(check_etc: bool, check_user: bool, check_env: bool) -> Config {
+pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, check_env: bool) -> Config {
   let mut settings = config::Config::default();
   
   if check_etc {
     match settings.merge(config::File::with_name("/etc/dindex")) {
       Ok(_s) => { }
       Err(e) => {
-        println!("{}", e);
-        return get_config_detail(false, check_user, check_env);
+        if be_verbose {
+          println!("{}", e);
+        }
+        return get_config_detail(be_verbose, false, check_user, check_env);
       }
     }
   }
@@ -85,8 +87,10 @@ pub fn get_config_detail(check_etc: bool, check_user: bool, check_env: bool) -> 
     match settings.merge(config::File::with_name( user_settings_path_buff.as_path().to_str().unwrap_or(".dindex") )) {
       Ok(_s) => { }
       Err(e) => {
-        println!("{}", e);
-        return get_config_detail(check_etc, false, check_env);
+        if be_verbose {
+          println!("{}", e);
+        }
+        return get_config_detail(be_verbose, check_etc, false, check_env);
       }
     }
   }
@@ -95,8 +99,10 @@ pub fn get_config_detail(check_etc: bool, check_user: bool, check_env: bool) -> 
     match settings.merge(config::Environment::with_prefix("DINDEX")) {
       Ok(_s) => { }
       Err(e) => {
-        println!("{}", e);
-        return get_config_detail(check_etc, check_user, false);
+        if be_verbose {
+          println!("{}", e);
+        }
+        return get_config_detail(be_verbose, check_etc, check_user, false);
       }
     }
   }
@@ -104,21 +110,21 @@ pub fn get_config_detail(check_etc: bool, check_user: bool, check_env: bool) -> 
   // Now read in, setting defaults where empty
   let mut c = Config {
     listen_ip:
-        s_get_str(&settings, "listen_ip", "0.0.0.0"),
+        s_get_str(be_verbose, &settings, "listen_ip", "0.0.0.0"),
     listen_port:
-        s_get_i64(&settings, "listen_port", 0x1de0) as u16,
+        s_get_i64(be_verbose, &settings, "listen_port", 0x1de0) as u16,
     anon_max_bytes_sent_per_ip_per_sec:
-        s_get_i64(&settings, "anon_max_bytes_sent_per_ip_per_sec", 16384) as usize,
+        s_get_i64(be_verbose, &settings, "anon_max_bytes_sent_per_ip_per_sec", 16384) as usize,
     trusted_ip_sources:
-        s_get_str_vec(&settings, "trusted_ip_sources", vec!["127.0.0.1".to_string()]),
+        s_get_str_vec(be_verbose, &settings, "trusted_ip_sources", vec!["127.0.0.1".to_string()]),
     identity_private_key_file:
-        s_get_str(&settings, "identity_private_key_file", "/dev/null"),
+        s_get_str(be_verbose, &settings, "identity_private_key_file", "/dev/null"),
     identity_public_key_file:
-        s_get_str(&settings, "identity_public_key_file", "/dev/null"),
+        s_get_str(be_verbose, &settings, "identity_public_key_file", "/dev/null"),
     cache_dir:
-        s_get_str(&settings, "cache_dir", "/tmp/dindex_cache/"),
+        s_get_str(be_verbose, &settings, "cache_dir", "/tmp/dindex_cache/"),
     cache_max_bytes:
-        s_get_i64(&settings, "cache_max_bytes", 16384) as usize,
+        s_get_i64(be_verbose, &settings, "cache_max_bytes", 16384) as usize,
     upstream_resolvers:
         vec![],
   };
@@ -129,19 +135,23 @@ pub fn get_config_detail(check_etc: bool, check_user: bool, check_env: bool) -> 
         match s_val.into_table() {
           Ok(val_map) => {
             c.upstream_resolvers.push(Resolver {
-              host: v_get_str_of(&val_map, "host", "localhost"),
-              port: v_get_i64_of(&val_map, "port", 0x1de0) as u16,
-              max_latency_ms: v_get_i64_of(&val_map, "max_latency_ms", 600) as usize,
+              host: v_get_str_of(be_verbose, &val_map, "host", "localhost"),
+              port: v_get_i64_of(be_verbose, &val_map, "port", 0x1de0) as u16,
+              max_latency_ms: v_get_i64_of(be_verbose, &val_map, "max_latency_ms", 600) as usize,
             });
           }
           Err(e) => {
-            println!("{}", e);
+            if be_verbose {
+              println!("{}", e);
+            }
           }
         }
       }
     }
     Err(e) => {
-      println!("{}", e);
+      if be_verbose {
+        println!("{}", e);
+      }
       c.upstream_resolvers.push(Resolver {
         host: "dindex.jmcateer.pw".to_string(),
         port: 0x1de0,
@@ -153,7 +163,7 @@ pub fn get_config_detail(check_etc: bool, check_user: bool, check_env: bool) -> 
   return c;
 }
 
-fn s_get_str_vec(settings: &config::Config, key: &str, default: Vec<String>) -> Vec<String> {
+fn s_get_str_vec(be_verbose :bool, settings: &config::Config, key: &str, default: Vec<String>) -> Vec<String> {
   match settings.get_array(key) {
     Ok(val_vec) => {
       let mut s_vec: Vec<String> = vec![];
@@ -163,36 +173,44 @@ fn s_get_str_vec(settings: &config::Config, key: &str, default: Vec<String>) -> 
             s_vec.push(str_val);
           }
           Err(e) => {
-            println!("{}", e);
+            if be_verbose {
+              println!("{}", e);
+            }
           }
         }
       }
       return s_vec;
     }
     Err(e) => {
-      println!("{}", e);
+      if be_verbose {
+        println!("{}", e);
+      }
       return default;
     }
   }
 }
 
-fn s_get_str(settings: &config::Config, key: &str, default: &str) -> String {
+fn s_get_str(be_verbose: bool, settings: &config::Config, key: &str, default: &str) -> String {
   match settings.get_str(key) {
     Ok(val) => { return val; }
     Err(e) => {
-      println!("{}", e);
+      if be_verbose {
+        println!("{}", e);
+      }
       return default.to_string();
     }
   }
 }
 
-fn v_get_str_of(src: &HashMap<String, config::Value>, key: &str, default: &str) -> String {
+fn v_get_str_of(be_verbose: bool, src: &HashMap<String, config::Value>, key: &str, default: &str) -> String {
   match src.get(key) {
     Some(conf_val) => {
       match conf_val.clone().into_str() { // TODO can we design-out this clone()?
         Ok(str_val) => { return str_val; }
         Err(e) => {
-          println!("{}", e);
+          if be_verbose {
+            println!("{}", e);
+          }
           return default.to_string();
         }
       }
@@ -203,23 +221,27 @@ fn v_get_str_of(src: &HashMap<String, config::Value>, key: &str, default: &str) 
   }
 }
 
-fn s_get_i64(settings: &config::Config, key: &str, default: i64) -> i64 {
+fn s_get_i64(be_verbose: bool, settings: &config::Config, key: &str, default: i64) -> i64 {
   match settings.get_int(key) {
     Ok(val) => { return val; }
     Err(e) => {
-      println!("{}", e);
+      if be_verbose {
+        println!("{}", e);
+      }
       return default;
     }
   }
 }
 
-fn v_get_i64_of(src: &HashMap<String, config::Value>, key: &str, default: i64) -> i64 {
+fn v_get_i64_of(be_verbose: bool, src: &HashMap<String, config::Value>, key: &str, default: i64) -> i64 {
   match src.get(key) {
     Some(conf_val) => {
       match conf_val.clone().into_int() { // TODO can we design-out this clone()?
         Ok(int_val) => { return int_val; }
         Err(e) => {
-          println!("{}", e);
+          if be_verbose {
+            println!("{}", e);
+          }
           return default;
         }
       }

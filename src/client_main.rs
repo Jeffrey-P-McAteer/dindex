@@ -24,6 +24,8 @@ use rand;
 
 use structopt::StructOpt;
 
+use std::thread;
+
 use dindex::get_config;
 use dindex::Resolver;
 use dindex::Record;
@@ -41,12 +43,15 @@ fn main() {
   
   let config = get_config();
   for resolver in config.upstream_resolvers {
-    instruct_resolver(&resolver, &args);
+    let a = args.clone(); // TODO not this
+    thread::spawn(move || {
+      instruct_resolver(&resolver, &a);
+    });
   }
 }
 
 fn instruct_resolver(r: &Resolver, args: &Args) {
-  use std::{thread, time};
+  use std::time;
   use std::time::{Duration, Instant};
   use rand::Rng;
   
