@@ -42,11 +42,17 @@ fn main() {
   }
   
   let config = get_config();
+  let mut threads = vec![];
   for resolver in config.upstream_resolvers {
     let a = args.clone(); // TODO not this
-    thread::spawn(move || {
+    let th = thread::spawn(move || {
       instruct_resolver(&resolver, &a);
     });
+    threads.push(th);
+  }
+  // Wait on all threads
+  for th in threads {
+    th.join().unwrap();
   }
 }
 
