@@ -274,8 +274,8 @@ impl Record {
     use regex::Regex;
     
     let mut common_keys = vec![];
-    for (my_key, _) in self.properties.clone() {
-      for (their_key, _) in query_rec.properties.clone() {
+    for (my_key, _) in &self.properties {
+      for (their_key, _) in &query_rec.properties {
         if my_key == their_key {
           common_keys.push(my_key.clone());
         }
