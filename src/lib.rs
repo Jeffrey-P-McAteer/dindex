@@ -203,7 +203,7 @@ impl ::std::str::FromStr for Record {
       }
     }
     
-    let props: HashMap<String, String> = serde_json::from_str(s)?;
+    let props: HashMap<String, String> = serde_json::from_str(s).unwrap_or(HashMap::new());
     Ok(Record {
       properties: props
     })
@@ -236,7 +236,7 @@ pub struct Args {
   
   pub record: Option<Record>,
   
-  #[structopt(last = true)]
+  //#[structopt(last = true)]
   pub extra_args: Vec<String>,
   
   // Flags
@@ -248,7 +248,7 @@ pub struct Args {
   
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SvrArgs {
   pub action: ArgsAction,
   pub record: Record,

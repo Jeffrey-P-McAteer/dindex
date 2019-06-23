@@ -34,6 +34,7 @@ use dindex::config::Resolver;
 use dindex::config::Config;
 use dindex::Record;
 use dindex::Args;
+use dindex::SvrArgs;
 
 fn main() {
   let args = Args::from_args();
@@ -66,6 +67,11 @@ fn main() {
 }
 
 fn instruct_resolver(r: &Resolver, args: &Args) {
+  let svr_args = args.clone().into_svr_args();
+  instruct_resolver_direct(r, &svr_args);
+}
+
+fn instruct_resolver_direct(r: &Resolver, args: &SvrArgs) {
   use std::time;
   use std::time::{Duration, Instant};
   use rand::Rng;
@@ -75,7 +81,7 @@ fn instruct_resolver(r: &Resolver, args: &Args) {
   let mut rng = rand::thread_rng();
   let mut client = victorem::ClientSocket::new(rng.gen_range(11111, 55555), r.get_host_port_s()).unwrap();
   
-  client.send(serde_cbor::to_vec(&args.clone().into_svr_args()).unwrap()).unwrap();
+  client.send(serde_cbor::to_vec(&args.clone()).unwrap()).unwrap();
   
   let timer = Instant::now();
   let period = Duration::from_millis(r.max_latency_ms as u64);
@@ -117,11 +123,15 @@ fn instruct_resolver(r: &Resolver, args: &Args) {
       }
     }
   }
-
 }
 
 fn publish_to_resolver(r: &Resolver, record: &Record) {
-  
+  use dindex::ArgsAction;
+  let svr_args = SvrArgs {
+    action: ArgsAction::publish,
+    record: record.clone(),
+  };
+  instruct_resolver_direct(r, &svr_args);
 }
 
 fn do_publish_site_pages(config: Config, args: Args) {
@@ -131,19 +141,31 @@ fn do_publish_site_pages(config: Config, args: Args) {
   match args.publish_site_pages {
     Some(url) => {
       println!("Crawling down to {} pages at {}", args.max, url);
+      let first_url = url.clone();
       let crawler = Crawler::new(url)
         .threads(4)
         .crawl();
       
       let mut new_records: Vec<Record> = vec![];
       
+      if let Ok(rec) = urlentry_to_record(url_crawler::UrlEntry::Html { url: Url::parse(&first_url).unwrap() }) {
+        new_records.push(rec);
+      }
+      
       let mut i = 0;
       for file in crawler {
         println!("Crawled {:?}", file);
-        new_records.push(urlentry_to_record(file));
-        i += 1;
-        if i > args.max {
-          break;
+        match urlentry_to_record(file) {
+          Ok(rec) => {
+            new_records.push(rec);
+            i += 1;
+            if i > args.max {
+              break;
+            }
+          }
+          Err(e) => {
+            println!("{}", e);
+          }
         }
       }
       
@@ -174,20 +196,20 @@ fn do_publish_site_pages(config: Config, args: Args) {
   }
 }
 
-fn urlentry_to_record(url: url_crawler::UrlEntry) -> Record {
+fn urlentry_to_record(url: url_crawler::UrlEntry) -> Result<Record, ::std::io::Error> {
   use webpage::{Webpage, WebpageOptions};
   use url_crawler::UrlEntry;
   
   match url {
     UrlEntry::Html{url} => {
-      let info = Webpage::from_url(url.as_str(), WebpageOptions::default()).expect("Could not read from URL");
+      let info = Webpage::from_url(url.as_str(), WebpageOptions::default())?;
       let html = info.html;
-      Record::webpage_record(
+      Ok(Record::webpage_record(
         url.to_string(),
         html.title.unwrap_or(url.to_string()),
         html.description.unwrap_or(String::new()),
-      )
+      ))
     }
-    _ => Record::empty() // TODO
+    _ => Ok(Record::empty()) // TODO
   }
 }
