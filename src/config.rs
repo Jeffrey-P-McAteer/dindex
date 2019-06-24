@@ -54,6 +54,12 @@ pub struct Config {
   pub upstream_resolvers: Vec<Resolver>,
 }
 
+impl Config {
+  pub fn get_ip_port(&self) -> String {
+    format!("{}:{}", self.listen_ip, self.listen_port)
+  }
+}
+
 pub fn get_config() -> Config {
   get_config_detail(false, true, true, true)
 }

@@ -19,7 +19,6 @@
 
 extern crate structopt;
 
-use victorem;
 use rand;
 
 use structopt::StructOpt;
@@ -79,7 +78,7 @@ fn instruct_resolver_direct(r: &Resolver, args: &SvrArgs) {
   println!("Querying {}", r.get_host_port_s());
   
   let mut rng = rand::thread_rng();
-  let mut client = victorem::ClientSocket::new(rng.gen_range(11111, 55555), r.get_host_port_s()).unwrap();
+  //let mut client = victorem::ClientSocket::new(rng.gen_range(11111, 55555), r.get_host_port_s()).unwrap();
   
   client.send(serde_cbor::to_vec(&args.clone()).unwrap()).unwrap();
   
@@ -94,20 +93,19 @@ fn instruct_resolver_direct(r: &Resolver, args: &SvrArgs) {
       break;
     }
     
+    let mut i = 0;
+    let mut should_exit = false;
     match client.recv() {
       Ok(bytes) => {
-        let results: Vec<Record> = serde_cbor::from_slice(&bytes).unwrap_or(vec![]);
-        let mut should_exit = false;
-        let mut i = 0;
-        for result in results {
-          println!("Result {}: {:?}", i, result.properties);
+        if let Ok(result) = serde_cbor::from_slice::<Record>(&bytes) {
           i += 1;
+          println!("Result {}: {:?}", i, result.properties);
           if !should_exit && result.is_end_record() {
             should_exit = true;
           }
-        }
-        if should_exit {
-          break;
+          if should_exit {
+            break;
+          }
         }
       }
       Err(e) => {
@@ -136,7 +134,7 @@ fn publish_to_resolver(r: &Resolver, record: &Record) {
 
 fn do_publish_site_pages(config: Config, args: Args) {
   use url_crawler::*;
-  use std::{thread, time};
+  use std::time;
   
   match args.publish_site_pages {
     Some(url) => {

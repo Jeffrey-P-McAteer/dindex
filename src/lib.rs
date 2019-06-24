@@ -67,11 +67,21 @@ impl Record {
       ].iter().cloned().collect()
     }
   }
+  
   pub fn result_end_record() -> Record {
     Record {
       properties: [
         ("type".into(), "ephemeral".into()),
         ("result-end".into(), "true".into())
+      ].iter().cloned().collect()
+    }
+  }
+  
+  pub fn server_start_record() -> Record {
+    Record {
+      properties: [
+        ("type".into(), "server-log".into()),
+        ("data".into(), shellcmd_out("uname -a".to_string()))
       ].iter().cloned().collect()
     }
   }
@@ -261,6 +271,17 @@ impl Args {
       record: self.record.expect("No record arg given but expected")
     }
   }
+}
+
+
+pub fn shellcmd_out(cmd: String) -> String {
+    use std::process::Command;
+    let output = Command::new("sh")
+                     .arg("-c")
+                     .arg(cmd)
+                     .output()
+                     .expect("failed to execute process");
+    return String::from_utf8_lossy(&output.stdout).to_string();
 }
 
 

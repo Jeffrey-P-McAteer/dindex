@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 config = "0.9.3"
 dirs = "2.0.1"
-victorem = "0.8.2"
+crossbeam = "0.7"
 
 rand = "0.6.5"
 regex = "1"

@@ -20,14 +20,17 @@
 #[macro_use]
 extern crate lazy_static;
 
-use victorem;
+extern crate crossbeam;
+
 //use serde_cbor::from_slice;
 
-use std::net::SocketAddr;
-use std::time::Duration;
+use std::net::{SocketAddr,UdpSocket};
 use std::{thread, time};
-//use std::collections::HashMap;
+use std::collections::HashMap;
 use std::{env, fs};
+use std::sync::{RwLock, Arc};
+use std::time::{Duration, Instant};
+use std::io::ErrorKind;
 
 use dindex::config::get_config;
 use dindex::config::Config;
@@ -63,97 +66,170 @@ WantedBy=multi-user.target
         return;
       }
   }
+  
   let config = get_config();
-  println!("Listening for connections on UDP 0.0.0.0:{}", config.listen_port);
-  listen(&config);
+  
+  let svr_data = RwLock::new(ServerGlobalData {
+        config: &config,
+        pending_results: HashMap::new(),
+        records: Arc::new(RwLock::new(vec![
+            Record::server_start_record()
+        ])),
+        pending_cleanup_timer: Instant::now(),
+  });
+  
+  let sock = UdpSocket::bind(config.get_ip_port())
+                       .expect("Failed to bind socket");
+  sock.set_nonblocking(true)
+      .expect("Failed to enter non-blocking mode");
+  println!("Listening for connections on UDP {}", config.get_ip_port());
+  
+  let mut incoming_buf = [0u8; 65536];
+  let mut spawned_threads = vec![];
+  loop {
+      match sock.recv_from(&mut incoming_buf) {
+        Ok((num_bytes, src)) => {
+            let packet = &incoming_buf[0..num_bytes].to_vec();
+            let th = crossbeam::thread::scope(|_s| {
+                handle_packet(&svr_data, packet.to_vec(), &sock, src);
+            });
+            spawned_threads.push(th);
+        }
+        Err(ref err) if err.kind() != ErrorKind::WouldBlock => {
+            println!("Server error: {}", err);
+            break;
+        }
+        Err(_e) => {
+            // Usually OS error 11
+            //println!("Unknown error: {}", e);
+        }
+      }
+  }
 }
 
-fn listen(config: &Config) {
-  // TODO currently victorem cannot use config.listen_ip; 
-  let mut server = victorem::GameServer::new(
-    ServerGlobalData {
-        config: config,
-        last_results: None,
-        records: vec![
-            // TODO not this
-            Record{properties: [("type".into(), "server-log".into()),("data".into(), "Server says Hello World!".into())].iter().cloned().collect()}
-        ]
-    },
-    config.listen_port
-  ).unwrap();
-  server.run();
+fn handle_packet(server: &RwLock<ServerGlobalData>, packet: Vec<u8>, sock: &UdpSocket, client: SocketAddr) {
+    sock.send_to(&packet, client).expect("failed to send message");
+    
+}
+
+struct ClientResults {
+    pub from: SocketAddr,
+    pub begun: bool,
+    pub completed: bool,
+    pub results: Vec<Record>,
+}
+
+impl ClientResults {
+    pub fn new(from: SocketAddr) -> ClientResults {
+        ClientResults {
+            from: from,
+            begun: false,
+            completed: false,
+            results: vec![],
+        }
+    }
 }
 
 #[allow(dead_code)]
 struct ServerGlobalData<'a> {
     config: &'a Config,
-    last_results: Option<Vec<Record>>,
-    records: Vec<Record>,
+    pending_results: HashMap<String, Arc<RwLock<ClientResults>>>,
+    records: Arc<RwLock<Vec<Record>>>,
+    pending_cleanup_timer: Instant,
 }
 
-impl<'a> ServerGlobalData<'a> {
-    pub fn do_operation(&mut self, args: SvrArgs) -> Vec<Record> {
-        match args.action {
-            dindex::ArgsAction::query => {
-                let mut results: Vec<Record> = vec![];
-                let query_map = args.record.gen_query_map();
-                // This is possibly the slowest possible search impl.
-                for record in &self.records {
+pub fn do_operation<F: Fn(Record)>(args: SvrArgs, records: Arc<RwLock<Vec<Record>>>, on_result: F) {
+    match args.action {
+        dindex::ArgsAction::query => {
+            let query_map = args.record.gen_query_map();
+            // This is possibly the slowest possible search impl.
+            if let Ok(records) = records.read() {
+                for record in &records[..] {
                     // Check if this record matches any of the search records
                     if record.matches_faster(&query_map) {
-                        results.push(record.clone());
+                        on_result(record.clone());
                     }
                 }
-                results.push(Record::result_end_record());
-                return results;
-            }
-            dindex::ArgsAction::publish => {
-                self.records.push(args.record);
-                return vec![
-                    Record::ephemeral("Published")
-                ];
+                on_result(Record::result_end_record());
             }
         }
+        dindex::ArgsAction::publish => {
+            if let Ok(mut records) = records.write() {
+                records.push(args.record);
+                on_result(Record::ephemeral("Published"));
+            }
+            else {
+                on_result(Record::ephemeral("Failed to publish"));
+            }
+        }
+    }
+}
+
+// impl<'a> victorem::Game for ServerGlobalData<'a> {
+//     fn handle_command(
+//         &mut self,
+//         _delta_time: Duration,
+//         commands: Vec<Vec<u8>>,
+//         from: SocketAddr,
+//     ) -> victorem::ContinueRunning {
+//         for v in commands {
+//             if let Ok(args) = serde_cbor::from_slice::<SvrArgs>(&v) {
+//                 println!("From Client: {} {:?}", from, args,);
+                
+//                 let client_ip_port_s = format!("{}", from);
+//                 let results = Arc::new(RwLock::new(ClientResults::new(from)));
+//                 self.pending_results.insert(client_ip_port_s, results.clone());
+                
+//                 // process the new request async
+//                 let records_ref = self.records.clone();
+//                 thread::spawn(move || {
+//                     do_operation(args, records_ref, move |result| {
+//                         from.
+//                     });
+//                 });
+                
+//             }
+//         }
         
-    }
-}
+//         // Routinely free memory from hashmap
+//         let period = Duration::from_millis(20_000);
+//         if self.pending_cleanup_timer.elapsed() > period {
+//             let mut to_remove_vec: Vec<String> = vec![];
+//             for (result_key, result_val) in self.pending_results {
+//                 if let Ok(val) = result_val.read() {
+//                     if val.completed {
+//                         to_remove_vec.push(result_key);
+//                     }
+//                 }
+//             }
+//             for to_remove in to_remove_vec {
+//                 println!("Removing pending data for {}", to_remove);
+//                 self.pending_results.remove(&to_remove);
+//             }
+//         }
+        
+//         true
+//     }
 
-impl<'a> victorem::Game for ServerGlobalData<'a> {
-    fn handle_command(
-        &mut self,
-        _delta_time: Duration,
-        commands: Vec<Vec<u8>>,
-        from: SocketAddr,
-    ) -> victorem::ContinueRunning {
-        for v in commands {
-            let args: SvrArgs = serde_cbor::from_slice(&v).unwrap();
-            println!(
-                "From Client: {} {:?}",
-                from,
-                args,
-            );
+//     fn draw(&mut self, _delta_time: Duration) -> Vec<u8> {
+//         vec![]
+//         // for (client_key, results) in self.pending_results {
             
-            self.last_results = Some(self.do_operation(args));
-        }
-        true
-    }
-
-    fn draw(&mut self, _delta_time: Duration) -> Vec<u8> {
-        match &self.last_results {
-            Some(results) => {
-                let bytes = serde_cbor::to_vec(results).unwrap();
-                self.last_results = None;
-                return bytes;
-            }
-            None => {
-                // Sleep to prevent 100% CPU thrashing
+//         // }
+//         // match &self.last_results {
+//         //     Some(results) => {
+//         //         let bytes = serde_cbor::to_vec(results).unwrap();
+//         //         self.last_results = None;
+//         //         return bytes;
+//         //     }
+//         //     None => {
+//         //         // Sleep to prevent 100% CPU thrashing
                 
-                thread::sleep(time::Duration::from_millis(50));
+//         //         thread::sleep(time::Duration::from_millis(50));
                 
-                return vec![];
-            }
-        }
-    }
+//         //         return vec![];
+//         //     }
+//         // }
+//     }
     
-}
-
+// }
