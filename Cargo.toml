@@ -23,6 +23,7 @@ lazy_static = "1.3.0"
 
 url-crawler = "0.3.0"
 webpage = "1.0.0"
+spin_sleep = "0.3.7"
 
 [lib]
 name = "dindex"

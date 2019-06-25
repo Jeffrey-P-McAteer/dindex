@@ -29,7 +29,7 @@ use std::net::{SocketAddr,UdpSocket};
 //use std::collections::HashMap;
 use std::{env, fs};
 use std::sync::{RwLock};
-//use std::time::{Instant};
+use std::time::Duration;
 use std::io::ErrorKind;
 
 use dindex::config::get_config;
@@ -79,8 +79,7 @@ WantedBy=multi-user.target
   
   let sock = UdpSocket::bind(config.get_ip_port())
                        .expect("Failed to bind socket");
-  sock.set_nonblocking(true)
-      .expect("Failed to enter non-blocking mode");
+  
   println!("Listening for connections on UDP {}", config.get_ip_port());
   
   let mut incoming_buf = [0u8; 65536];
@@ -92,7 +91,7 @@ WantedBy=multi-user.target
             let th = crossbeam::thread::scope(|_s| {
                 handle_packet(&svr_data, packet.to_vec(), &sock, src);
             });
-            println!("Got connection from {:?}", src);
+            println!("{} bytes from {:?}", num_bytes, src);
             spawned_threads.push(th);
         }
         Err(ref err) if err.kind() != ErrorKind::WouldBlock => {
@@ -111,15 +110,17 @@ fn handle_packet(server: &ServerGlobalData, packet: Vec<u8>, sock: &UdpSocket, c
     if let Ok(svr_args) = serde_cbor::from_slice::<SvrArgs>(&packet) {
       match svr_args.action {
         ArgsAction::query => {
+          println!("{:?} queried {:?}", client, svr_args.record);
           do_query(&svr_args.record, &server.records, |result| {
+            println!("Returning to {:?} result {:?}", client, result);
             sock.send_to(&serde_cbor::to_vec(&result).unwrap(), client).expect("failed to send message");
           });
         },
         ArgsAction::publish => {
-          
+          println!("{:?} published {:?}", client, svr_args.record);
+          do_publish(&svr_args.record, &server.records);
         }
       }
-      //do_operation(&svr_args, );
     }
     else {
       let err = Record::error_record("Error decoding query record");
@@ -147,9 +148,9 @@ pub fn do_query<F: Fn(Record)>(query_record: &Record, records: &RwLock<Vec<Recor
   }
 }
 
-pub fn do_publish(new_record: Record, records: RwLock<Vec<Record>>) {
+pub fn do_publish(new_record: &Record, records: &RwLock<Vec<Record>>) {
   if let Ok(mut records) = records.write() {
-    records.push(new_record);
+    records.push(new_record.clone());
   }
 }
 

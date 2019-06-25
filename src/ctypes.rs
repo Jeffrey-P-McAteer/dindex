@@ -52,3 +52,13 @@ pub fn get_all_ctypes() -> HashMap<&'static str, &'static [&'static str]> {
   return hm;
 }
 
+// TODO why doesn't this work? Are we comparing references accidentally?
+pub fn apply_aliases(s: &str) -> &str {
+  if s == ":website" {
+    println!("Replacing '{}' with '{}'", s, WEBPAGE);
+    return WEBPAGE;
+  }
+  return s;
+}
+
+

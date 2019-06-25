@@ -201,11 +201,12 @@ impl ::std::str::FromStr for Record {
   type Err = serde_json::error::Error;
   
   fn from_str(s: &str) -> Result<Self, Self::Err> {
+    let s = ctypes::apply_aliases(s);
     
     for (ctype_name, ctype_keys) in ctypes::get_all_ctypes() {
-      if s == ctype_name {
+      if s.to_string() == ctype_name.to_string() {
         let args: Vec<String> = env::args().collect();
-        let mut i = args.iter().position(|r| r == ctype_name).unwrap();
+        let mut i = args.iter().position(|r| r == ctype_name).unwrap_or(args.len()-1);
         let mut record = Record::empty();
         for key in ctype_keys {
           if let Some(val) = args.get(i+1) {

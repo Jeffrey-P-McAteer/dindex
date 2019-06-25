@@ -72,7 +72,6 @@ fn instruct_resolver(r: &Resolver, args: &Args) {
 }
 
 fn instruct_resolver_direct(r: &Resolver, args: &SvrArgs) {
-  use std::time;
   use std::time::{Duration, Instant};
   use rand::Rng;
   use std::net::UdpSocket;
@@ -104,8 +103,11 @@ fn instruct_resolver_direct(r: &Resolver, args: &SvrArgs) {
   let timer = Instant::now();
   let period = Duration::from_millis(r.max_latency_ms as u64);
   
+  // Create a new sleeper that trusts native thread::sleep with 100μs accuracy
+  let spin_sleeper = spin_sleep::SpinSleeper::new(100_000);
+  let sleep_delay = Duration::from_micros(10); // 100 = 0.1ms
+  
   loop {
-    thread::sleep(time::Duration::from_millis(5));
     
     if timer.elapsed() > period {
       println!("Timing out for resolver at {}", r.get_host_port_s());
@@ -119,7 +121,7 @@ fn instruct_resolver_direct(r: &Resolver, args: &SvrArgs) {
       Ok(num_received) => {
         if let Ok(result) = serde_cbor::from_slice::<Record>(&incoming_buf[0..num_received]) {
           i += 1;
-          println!("Result {}: {:?}", i, result.properties);
+          println!("{} result {}: {:?}", r.get_host_port_s(), i, result.properties);
           if !should_exit && result.is_end_record() {
             should_exit = true;
           }
@@ -131,7 +133,9 @@ fn instruct_resolver_direct(r: &Resolver, args: &SvrArgs) {
       Err(ref err) if err.kind() != ErrorKind::WouldBlock => {
           println!("Error: {}", err);
       }
-      _ => {}
+      _ => {
+        spin_sleeper.sleep(sleep_delay);
+      }
     }
   }
 }
