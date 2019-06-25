@@ -27,7 +27,7 @@ extern crate url_crawler;
 extern crate webpage;
 
 use std::thread;
-use std::net::ToSocketAddrs;
+use std::io::ErrorKind;
 
 use dindex::config::get_config;
 use dindex::config::Resolver;
@@ -75,7 +75,7 @@ fn instruct_resolver_direct(r: &Resolver, args: &SvrArgs) {
   use std::time;
   use std::time::{Duration, Instant};
   use rand::Rng;
-  use std::net::{SocketAddr,UdpSocket};
+  use std::net::UdpSocket;
   
   println!("Querying {}", r.get_host_port_s());
   
@@ -83,6 +83,10 @@ fn instruct_resolver_direct(r: &Resolver, args: &SvrArgs) {
   //let mut client = victorem::ClientSocket::new(rng.gen_range(11111, 55555), r.get_host_port_s()).unwrap();
   let local_addr = format!("0.0.0.0:{}", rng.gen_range(11111, 55555));
   let sock = UdpSocket::bind(&local_addr).expect("Failed to bind socket");
+  if let Err(e) = sock.set_nonblocking(true) {
+    println!("Failed to enter non-blocking mode: {}", e);
+    println!("(program will hang without server response)");
+  }
   
   let bytes_to_send = serde_cbor::to_vec(&args.clone()).unwrap();
   //sock.send_to(&bytes_to_send, r.get_host_port_s() ).expect("failed to send message");
@@ -93,6 +97,7 @@ fn instruct_resolver_direct(r: &Resolver, args: &SvrArgs) {
     },
     Err(e) => {
       println!("Error sending to {} - {:?}", r.get_host_port_s(), e);
+      return;
     }
   }
   
@@ -100,7 +105,7 @@ fn instruct_resolver_direct(r: &Resolver, args: &SvrArgs) {
   let period = Duration::from_millis(r.max_latency_ms as u64);
   
   loop {
-    thread::sleep(time::Duration::from_millis(10));
+    thread::sleep(time::Duration::from_millis(5));
     
     if timer.elapsed() > period {
       println!("Timing out for resolver at {}", r.get_host_port_s());
@@ -123,9 +128,10 @@ fn instruct_resolver_direct(r: &Resolver, args: &SvrArgs) {
           }
         }
       }
-      Err(e) => {
-        println!("{}", e);
+      Err(ref err) if err.kind() != ErrorKind::WouldBlock => {
+          println!("Error: {}", err);
       }
+      _ => {}
     }
   }
 }

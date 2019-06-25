@@ -92,6 +92,7 @@ WantedBy=multi-user.target
             let th = crossbeam::thread::scope(|_s| {
                 handle_packet(&svr_data, packet.to_vec(), &sock, src);
             });
+            println!("Got connection from {:?}", src);
             spawned_threads.push(th);
         }
         Err(ref err) if err.kind() != ErrorKind::WouldBlock => {
