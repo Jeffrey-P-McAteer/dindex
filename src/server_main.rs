@@ -118,11 +118,12 @@ fn handle_packet(server: &ServerGlobalData, packet: Vec<u8>, sock: &UdpSocket, c
             let reply_bytes = serde_cbor::to_vec(&result).unwrap();
             if total_returned_bytes + reply_bytes.len() > max_returned_bytes {
               println!("Hit query byte limit, refusing to reply with result");
-              return;
+              return false;
             }
             println!("Returning to {:?} result {:?}", client, result);
             sock.send_to(&reply_bytes, client).expect("failed to send message");
             total_returned_bytes += reply_bytes.len();
+            return true;
           });
         },
         ArgsAction::publish => {
@@ -143,14 +144,17 @@ struct ServerGlobalData<'a> {
     records: RwLock<Vec<Record>>,
 }
 
-pub fn do_query<F: FnMut(Record)>(query_record: &Record, records: &RwLock<Vec<Record>>, mut on_result: F) {
+pub fn do_query<F: FnMut(Record) -> bool>(query_record: &Record, records: &RwLock<Vec<Record>>, mut on_result: F) {
   let query_map = query_record.gen_query_map();
   // This is possibly the slowest possible search impl.
   if let Ok(records) = records.read() {
+      // For every record, exiting when closure on_result returns false
       for record in &records[..] {
           // Check if this record matches any of the search records
           if record.matches_faster(&query_map) {
-              on_result(record.clone());
+              if ! on_result(record.clone()) {
+                break; // exit early if we cannot continue
+              }
           }
       }
       on_result(Record::result_end_record());
