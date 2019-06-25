@@ -27,6 +27,7 @@ extern crate url_crawler;
 extern crate webpage;
 
 use std::thread;
+use std::net::ToSocketAddrs;
 
 use dindex::config::get_config;
 use dindex::config::Resolver;
@@ -74,13 +75,26 @@ fn instruct_resolver_direct(r: &Resolver, args: &SvrArgs) {
   use std::time;
   use std::time::{Duration, Instant};
   use rand::Rng;
+  use std::net::{SocketAddr,UdpSocket};
   
   println!("Querying {}", r.get_host_port_s());
   
   let mut rng = rand::thread_rng();
   //let mut client = victorem::ClientSocket::new(rng.gen_range(11111, 55555), r.get_host_port_s()).unwrap();
+  let local_addr = format!("0.0.0.0:{}", rng.gen_range(11111, 55555));
+  let sock = UdpSocket::bind(&local_addr).expect("Failed to bind socket");
   
-  client.send(serde_cbor::to_vec(&args.clone()).unwrap()).unwrap();
+  let bytes_to_send = serde_cbor::to_vec(&args.clone()).unwrap();
+  //sock.send_to(&bytes_to_send, r.get_host_port_s() ).expect("failed to send message");
+  
+  match sock.send_to(&bytes_to_send, r.get_host_port_s() ) {
+    Ok(number_of_bytes) => {
+      println!("Sent {} bytes to {}", number_of_bytes, r.get_host_port_s());
+    },
+    Err(e) => {
+      println!("Error sending to {} - {:?}", r.get_host_port_s(), e);
+    }
+  }
   
   let timer = Instant::now();
   let period = Duration::from_millis(r.max_latency_ms as u64);
@@ -95,9 +109,10 @@ fn instruct_resolver_direct(r: &Resolver, args: &SvrArgs) {
     
     let mut i = 0;
     let mut should_exit = false;
-    match client.recv() {
-      Ok(bytes) => {
-        if let Ok(result) = serde_cbor::from_slice::<Record>(&bytes) {
+    let mut incoming_buf = [0u8; 65536];
+    match sock.recv(&mut incoming_buf) {
+      Ok(num_received) => {
+        if let Ok(result) = serde_cbor::from_slice::<Record>(&incoming_buf[0..num_received]) {
           i += 1;
           println!("Result {}: {:?}", i, result.properties);
           if !should_exit && result.is_end_record() {
@@ -109,15 +124,7 @@ fn instruct_resolver_direct(r: &Resolver, args: &SvrArgs) {
         }
       }
       Err(e) => {
-        match e {
-          victorem::Exception::IoError(_ioe) => {
-            continue; // Just waiting for data
-          }
-          _ => {
-            println!("{}", e);
-            break;
-          }
-        }
+        println!("{}", e);
       }
     }
   }
