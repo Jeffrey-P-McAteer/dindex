@@ -186,6 +186,9 @@ fn do_publish_site_pages(config: Config, args: Args) {
       
       let mut threads = vec![];
       for new_record in &new_records {
+        if new_record.is_empty() {
+          continue;
+        }
         println!("Publishing {:?}", new_record);
         for resolver in &config.upstream_resolvers {
           let resolver = resolver.clone(); // 
@@ -196,7 +199,7 @@ fn do_publish_site_pages(config: Config, args: Args) {
           threads.push(th);
         }
         // Let some of those things go out before we jump forward
-        thread::sleep(time::Duration::from_millis(20));
+        thread::sleep(time::Duration::from_millis(1));
       }
       
       // Wait on all threads
