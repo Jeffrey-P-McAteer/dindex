@@ -62,3 +62,8 @@ pub fn apply_aliases(s: &str) -> &str {
 }
 
 
+/* special values */
+
+pub const VAL_EPHEMERAL_PADDING_BYTES: &'static str = "ephemeral-padding-bytes";
+
+

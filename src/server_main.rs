@@ -88,10 +88,10 @@ WantedBy=multi-user.target
       match sock.recv_from(&mut incoming_buf) {
         Ok((num_bytes, src)) => {
             let packet = &incoming_buf[0..num_bytes].to_vec();
+            println!("{} bytes from {:?}", num_bytes, src);
             let th = crossbeam::thread::scope(|_s| {
                 handle_packet(&svr_data, packet.to_vec(), &sock, src);
             });
-            println!("{} bytes from {:?}", num_bytes, src);
             spawned_threads.push(th);
         }
         Err(ref err) if err.kind() != ErrorKind::WouldBlock => {
@@ -110,10 +110,19 @@ fn handle_packet(server: &ServerGlobalData, packet: Vec<u8>, sock: &UdpSocket, c
     if let Ok(svr_args) = serde_cbor::from_slice::<SvrArgs>(&packet) {
       match svr_args.action {
         ArgsAction::query => {
+          let max_returned_bytes = packet.len();
+          let mut total_returned_bytes = 0;
+          
           println!("{:?} queried {:?}", client, svr_args.record);
           do_query(&svr_args.record, &server.records, |result| {
+            let reply_bytes = serde_cbor::to_vec(&result).unwrap();
+            if total_returned_bytes + reply_bytes.len() > max_returned_bytes {
+              println!("Hit query byte limit, refusing to reply with result");
+              return;
+            }
             println!("Returning to {:?} result {:?}", client, result);
-            sock.send_to(&serde_cbor::to_vec(&result).unwrap(), client).expect("failed to send message");
+            sock.send_to(&reply_bytes, client).expect("failed to send message");
+            total_returned_bytes += reply_bytes.len();
           });
         },
         ArgsAction::publish => {
@@ -134,7 +143,7 @@ struct ServerGlobalData<'a> {
     records: RwLock<Vec<Record>>,
 }
 
-pub fn do_query<F: Fn(Record)>(query_record: &Record, records: &RwLock<Vec<Record>>, on_result: F) {
+pub fn do_query<F: FnMut(Record)>(query_record: &Record, records: &RwLock<Vec<Record>>, mut on_result: F) {
   let query_map = query_record.gen_query_map();
   // This is possibly the slowest possible search impl.
   if let Ok(records) = records.read() {

@@ -2,6 +2,12 @@ listen_ip = "0.0.0.0"
 # 0x1de0 in hex - wanted to say "index"
 listen_port = 7648
 
+# To make abusing the system for Amplification attacks
+# impossible, the server will never reply with more bytes than
+# what the client gave it. To receive a useful amount of results,
+# clients should add a special ephemeral padding field in their query.
+query_padding_bytes = 4096
+
 anon_max_bytes_sent_per_ip_per_sec = 16384
 
 trusted_ip_sources = [

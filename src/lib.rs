@@ -106,6 +106,10 @@ impl Record {
     self.properties.is_empty()
   }
   
+  pub fn add_ephemeral_padding(&mut self, amount: usize) {
+    self.put(ctypes::VAL_EPHEMERAL_PADDING_BYTES.to_string(), String::from_utf8(vec![b'x'; amount]).unwrap_or(String::new()));
+  }
+  
   pub fn put_str(&mut self, key: &str, val: &str) {
     self.put(key.to_string(), val.to_string());
   }
@@ -132,6 +136,9 @@ impl Record {
   pub fn gen_query_map(&self) -> HashMap<String, Regex> {
     let mut map : HashMap<String, Regex> = HashMap::new();
     for (key, val) in &self.properties {
+      if key == ctypes::VAL_EPHEMERAL_PADDING_BYTES {
+        continue;
+      }
       map.insert(key.to_string(), Regex::new(val).unwrap());
     }
     return map;
@@ -232,7 +239,7 @@ impl ::std::str::FromStr for Record {
 
 arg_enum! {
   #[allow(non_camel_case_types)]
-  #[derive(Debug, Serialize, Deserialize, Clone)]
+  #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
   pub enum ArgsAction {
       query,
       publish
@@ -279,6 +286,15 @@ impl Args {
     SvrArgs {
       action: self.action,
       record: self.record.expect("No record arg given but expected")
+    }
+  }
+  pub fn add_query_padding_if_necessary(&mut self, config: &config::Config) {
+    if self.action == ArgsAction::query {
+      if let Some(record) = &self.record {
+        let mut new_record = record.clone();
+        new_record.add_ephemeral_padding(config.query_padding_bytes);
+        self.record = Some(new_record);
+      }
     }
   }
 }

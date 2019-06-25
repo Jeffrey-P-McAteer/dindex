@@ -33,11 +33,12 @@ use dindex::config::get_config;
 use dindex::config::Resolver;
 use dindex::config::Config;
 use dindex::Record;
+use dindex::ArgsAction;
 use dindex::Args;
 use dindex::SvrArgs;
 
 fn main() {
-  let args = Args::from_args();
+  let mut args = Args::from_args();
   let config = get_config();
   
   println!("{:?}", args);
@@ -51,6 +52,8 @@ fn main() {
     println!(include_str!("client_readme.md"));
     return;
   }
+  
+  args.add_query_padding_if_necessary(&config);
   
   let mut threads = vec![];
   for resolver in config.upstream_resolvers {

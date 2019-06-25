@@ -45,6 +45,7 @@ impl Resolver {
 pub struct Config {
   pub listen_ip: String,
   pub listen_port: u16,
+  pub query_padding_bytes: usize,
   pub anon_max_bytes_sent_per_ip_per_sec: usize,
   pub trusted_ip_sources: Vec<String>,
   pub identity_private_key_file: String,
@@ -115,6 +116,8 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
         s_get_str(be_verbose, &settings, "listen_ip", "0.0.0.0"),
     listen_port:
         s_get_i64(be_verbose, &settings, "listen_port", 0x1de0) as u16,
+    query_padding_bytes:
+        s_get_i64(be_verbose, &settings, "query_padding_bytes", 4096) as usize,
     anon_max_bytes_sent_per_ip_per_sec:
         s_get_i64(be_verbose, &settings, "anon_max_bytes_sent_per_ip_per_sec", 16384) as usize,
     trusted_ip_sources:
