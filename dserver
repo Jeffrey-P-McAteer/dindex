@@ -1,0 +1,3 @@
+#!/bin/bash
+# Helper b/c my terminal is only so long
+cargo run --release --bin dindex-server "$@"

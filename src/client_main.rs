@@ -93,9 +93,10 @@ fn instruct_resolver_direct(r: &Resolver, args: &SvrArgs) {
   let bytes_to_send = serde_cbor::to_vec(&args.clone()).unwrap();
   //sock.send_to(&bytes_to_send, r.get_host_port_s() ).expect("failed to send message");
   
+  println!("Sending {} bytes to {}", bytes_to_send.len(), r.get_host_port_s());
   match sock.send_to(&bytes_to_send, r.get_host_port_s() ) {
-    Ok(number_of_bytes) => {
-      println!("Sent {} bytes to {}", number_of_bytes, r.get_host_port_s());
+    Ok(bytes_written) => {
+      println!("Sent {} bytes", bytes_written);
     },
     Err(e) => {
       println!("Error sending to {} - {:?}", r.get_host_port_s(), e);
