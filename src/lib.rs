@@ -86,6 +86,15 @@ impl Record {
     }
   }
   
+  pub fn error_record(msg: &str) -> Record {
+    Record {
+      properties: [
+        ("type".into(), "ephemeral".into()),
+        ("data".into(), msg.to_string())
+      ].iter().cloned().collect()
+    }
+  }
+  
   pub fn is_end_record(&self) -> bool {
     if let Some(result_end) = self.get_str("result-end") {
       return result_end == "true";
