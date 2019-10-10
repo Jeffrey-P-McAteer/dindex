@@ -80,7 +80,7 @@ function add_record(record) {
   
   if (!rendered) {
     var p = document.createElement('pre');
-    p.innerText = JSON.stringify(record);
+    p.innerText = JSON.stringify(record, null, 4);
     elm.appendChild(p);
   }
   
