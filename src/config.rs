@@ -35,10 +35,22 @@ pub const DINDEX_DEF_PORT: u16 = 0x1de0;
 #[derive(Debug, Clone)]
 pub struct Config {
   
+  // Clients use these to transform the CLI args
+  //   :webpage 'Some Title' 'http://example.org' 'Some description text'
+  // into the following record
+  //   {"title": "Some Title", "url", "http://example.org", "description": "Some description text"}
+  pub ctypes: Vec<CType>,
+  
+  // Should point to RSA or ECDSA private key file;
+  // clients use this to sign records
+  pub client_private_key_file: String,
+  
   // This is used when client is run with --http-ui option, or whenever the server is run.
   pub client_enable_http_ui: bool,
   pub client_http_port: u16,
   pub client_http_websocket_port: u16,
+  pub client_http_custom_js: String,
+  pub client_http_custom_css: String,
   
   // In client: servers to query in parallel.
   // In server: federated servers to forward queries to
@@ -69,6 +81,12 @@ pub struct Server {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ServerProtocol {
   UDP, TCP, UNIX,
+}
+
+#[derive(Debug, Clone)]
+pub struct CType {
+  pub name: String, // eg ":webpage"
+  pub key_names: Vec<String>, // order matters
 }
 
 impl ServerProtocol {
@@ -151,9 +169,13 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
   
   // Now read in, setting defaults where empty
   return Config {
+    ctypes: s_get_ctype_vec(be_verbose, &settings, "ctypes"),
+    client_private_key_file: s_get_str(be_verbose, &settings, "client_private_key_file", ""),
     client_enable_http_ui: s_get_bool(be_verbose, &settings, "client_enable_http_ui", true),
     client_http_port: s_get_i64(be_verbose, &settings, "client_http_port", 8080) as u16,
     client_http_websocket_port: s_get_i64(be_verbose, &settings, "client_http_websocket_port", 8081) as u16,
+    client_http_custom_js: s_get_str(be_verbose, &settings, "client_http_custom_js", include_str!("http/example_custom_js.js")),
+    client_http_custom_css: s_get_str(be_verbose, &settings, "client_http_custom_css", include_str!("http/example_custom_css.css")),
     servers: s_get_server_vec(be_verbose, &settings, "servers"),
     server_max_records: s_get_i64(be_verbose, &settings, "server_max_records", 8080) as usize,
     server_max_unauth_websockets: s_get_i64(be_verbose, &settings, "server_max_unauth_websockets", 8080) as usize,
@@ -199,6 +221,44 @@ fn s_get_server_vec(be_verbose :bool, settings: &config::Config, array_name: &st
     }
   }
   return servers;
+}
+
+fn s_get_ctype_vec(be_verbose :bool, settings: &config::Config, array_name: &str) -> Vec<CType> {
+  let mut ctypes = vec![];
+  match settings.get_array(array_name) {
+    Ok(vals) => {
+      for s_val in vals {
+        match s_val.into_table() {
+          Ok(val_map) => {
+            ctypes.push(CType {
+              name: v_get_str_of(be_verbose, &val_map, "name", ":unk"),
+              key_names: v_get_str_vec(be_verbose, &val_map, "key_names", vec![])
+            });
+          }
+          Err(e) => {
+            if be_verbose {
+              println!("{}", e);
+            }
+          }
+        }
+      }
+    }
+    Err(e) => {
+      if be_verbose {
+        println!("{}", e);
+      }
+      // This is the default ctype used if nothing is configured
+      ctypes.push(CType {
+        name: ":webpage".to_string(),
+        key_names: vec![
+          "title".to_string(),
+          "url".to_string(),
+          "description".to_string(),
+        ]
+      });
+    }
+  }
+  return ctypes;
 }
 
 // Low-level helper methods to parse data

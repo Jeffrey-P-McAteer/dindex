@@ -72,3 +72,9 @@ div.result {
     border-color: #303030;
   }
 }
+
+/** Minor tweaks */
+
+pre, h1, h2, h3 {
+  margin: 1pt;
+}
