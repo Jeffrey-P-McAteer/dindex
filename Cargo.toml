@@ -1,0 +1,33 @@
+[package]
+name = "dindex"
+version = "0.1.0"
+authors = ["Jeffrey McAteer <jeffrey.p.mcateer@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+
+config = "0.9.3"
+
+serde = { version = "1.0.92", features = ["derive"] }
+serde_cbor = "0.9"
+serde_json = "1.0"
+# Allows us to send enums over the wire as integers
+serde_repr = "0.1"
+
+crossbeam = "0.7.2"
+crossbeam-utils = "0.6.6"
+
+# used to get home directory cross-platform
+dirs = "2.0.1"
+
+# Used for localhost HTTP UI
+rouille = "3.0.0"
+# localhost websocket
+ws = "0.9.0"
+
+# Used to parse CLI args into a struct
+structopt = "0.2"
+# Helps structopt parse enums gracefully
+clap = "2"
+
+

@@ -1,0 +1,22 @@
+<!doctype html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="style.css">
+    <title>dindex</title>
+  </head>
+  <body onload="app_main()">
+    <header>
+      <input id="simple_search" type="text" placeholder="Search..." disabled="true">
+      <button onclick="open_config()">C</button>
+    </header>
+    <main role="main" id="main">
+      <!-- contents replaced with result <div>s -->
+      <em>No results</em>
+    </main>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
