@@ -26,6 +26,8 @@ use clap::arg_enum;
 use serde;
 use serde_repr;
 
+use crate::actions::Action;
+
 #[derive(StructOpt, Debug, Clone)]
 #[structopt(name = "dindex", about = "A distributed index for anything and everything")]
 pub struct Args {
@@ -38,8 +40,8 @@ pub struct Args {
   pub verbose: u8,
   
   /// Action to perform
-  #[structopt(raw(possible_values = "&ArgsAction::variants()", case_insensitive = "true"))]
-  pub action: ArgsAction,
+  #[structopt(raw(possible_values = "&Action::variants()", case_insensitive = "true"))]
+  pub action: Action,
   
   /// Sign outgoing records
   #[structopt(short = "S", long = "signed")]
@@ -51,21 +53,5 @@ pub struct Args {
   #[structopt(last = true)]
   pub extra_args: Vec<String>,
   
-}
-
-arg_enum! {
-  #[allow(non_camel_case_types)]
-  #[derive(Debug, serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Copy, Clone, PartialEq)]
-  #[repr(u8)]
-  pub enum ArgsAction {
-      // We serialize as a number to guarantee a standard representation.
-      query = 0,
-      publish = 1,
-      listen = 2,
-      // The remaining arguments are NOT designed to be sent over the wire,
-      // but instead are used by the CLI tool.
-      run_server,
-      run_http_client
-  }
 }
 

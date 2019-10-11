@@ -17,36 +17,24 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-// Required for from_args() on args::Args
-use structopt::StructOpt;
+use serde;
+use serde_repr;
 
-mod config;
-mod args;
-mod record;
-mod actions;
+use clap;
+use clap::arg_enum;
 
-mod http_client;
-
-fn main() {
-  let args = args::Args::from_args();
-  let conf = config::read_config(&args);
-  
-  match args.action {
-    actions::Action::query => {
-      std::unimplemented!()
-    }
-    actions::Action::publish => {
-      std::unimplemented!()
-    }
-    actions::Action::listen => {
-      std::unimplemented!()
-    }
-    actions::Action::run_server => {
-      std::unimplemented!()
-    }
-    actions::Action::run_http_client => {
-      http_client::run_sync(&conf);
-    }
+arg_enum! {
+  #[allow(non_camel_case_types)]
+  #[derive(Debug, serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Copy, Clone, PartialEq)]
+  #[repr(u8)]
+  pub enum Action {
+      // We serialize as a number to guarantee a standard representation.
+      query = 0,
+      publish = 1,
+      listen = 2,
+      // The remaining arguments are NOT designed to be sent over the wire,
+      // but instead are used by the CLI tool.
+      run_server,
+      run_http_client
   }
-  
 }
