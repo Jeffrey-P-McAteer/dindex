@@ -19,6 +19,9 @@ crossbeam-utils = "0.6.6"
 
 regex = "1"
 
+# Used to parse URL strings in config
+url = "2.1.0"
+
 # used to get home directory cross-platform
 dirs = "2.0.1"
 

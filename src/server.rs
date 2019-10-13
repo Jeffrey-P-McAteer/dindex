@@ -18,12 +18,18 @@
  */
 
 use crossbeam_utils::thread;
+use url::{Url};
+
+use std::fs::File;
+use std::io::prelude::*;
 
 use crate::config::Config;
 use crate::data::Data;
 
 pub fn run_sync(config: &Config) {
-  let data = Data::new(config);
+  let mut data = Data::new(config);
+  read_stored_records(config, &mut data);
+  let data = data;
   
   thread::scope(|s| {
     let mut handlers = vec![];
@@ -57,5 +63,35 @@ fn run_udp_sync(config: &Config, data: &Data) {
 }
 
 fn run_unix_sync(config: &Config, data: &Data) {
+  
+}
+
+fn read_stored_records(config: &Config, data: &mut Data) {
+  let uri_s = &config.server_datastore_uri;
+  if let Ok(uri) = Url::parse(uri_s) {
+    match uri.scheme() {
+      "file" => {
+        let path = uri.path();
+        // This function will return an error if path does not already exist.
+        if let Ok(file) = File::open(path) {
+          if path.contains(".json") {
+            read_stored_records_json_file(file, data);
+          }
+          else {
+            println!("Error: unknown filetype {}", path);
+          }
+        }
+      }
+      unk => {
+        println!(
+          "Error reading in data: unknown scheme '{}' in given server_datastore_uri={}",
+          unk, config.server_datastore_uri
+        );
+      }
+    }
+  }
+}
+
+fn read_stored_records_json_file(json_f: File, data: &mut Data) {
   
 }
