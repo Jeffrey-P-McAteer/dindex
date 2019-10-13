@@ -17,38 +17,42 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-// Required for from_args() on args::Args
-use structopt::StructOpt;
+use crossbeam_utils::thread;
 
-mod config;
-mod args;
-mod record;
-mod actions;
+use crate::config::Config;
 
-mod http_client;
-mod server;
-mod data;
+pub fn run_sync(config: &Config) {
+  thread::scope(|s| {
+    let mut handlers = vec![];
+    
+    handlers.push(s.spawn(move |_| {
+      run_tcp_sync(config);
+    }));
+    
+    handlers.push(s.spawn(move |_| {
+      run_udp_sync(config);
+    }));
+    
+    handlers.push(s.spawn(move |_| {
+      run_unix_sync(config);
+    }));
+    
+    for h in handlers {
+      h.join().unwrap();
+    }
+  }).unwrap();
+}
 
-fn main() {
-  let args = args::Args::from_args();
-  let conf = config::read_config(&args);
+fn run_tcp_sync(config: &Config) {
+  println!("tcp starting on 0.0.0.0:{}", config.server_port);
   
-  match args.action {
-    actions::Action::query => {
-      std::unimplemented!()
-    }
-    actions::Action::publish => {
-      std::unimplemented!()
-    }
-    actions::Action::listen => {
-      std::unimplemented!()
-    }
-    actions::Action::run_server => {
-      server::run_sync(&conf);
-    }
-    actions::Action::run_http_client => {
-      http_client::run_sync(&conf);
-    }
-  }
+}
+
+fn run_udp_sync(config: &Config) {
+  println!("udp starting on 0.0.0.0:{}", config.server_port);
+  
+}
+
+fn run_unix_sync(config: &Config) {
   
 }

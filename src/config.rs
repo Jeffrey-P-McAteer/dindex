@@ -56,6 +56,9 @@ pub struct Config {
   // In server: federated servers to forward queries to
   pub servers: Vec<Server>,
   
+  // Servers listen on TCP and UDP on this port
+  pub server_port: u16,
+  
   // Servers will never remember more than this many records; oldest
   // records should be dropped first but order is not guaranteed.
   pub server_max_records: usize,
@@ -177,6 +180,7 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
     client_http_custom_js: s_get_str(be_verbose, &settings, "client_http_custom_js", include_str!("http/example_custom_js.js")),
     client_http_custom_css: s_get_str(be_verbose, &settings, "client_http_custom_css", include_str!("http/example_custom_css.css")),
     servers: s_get_server_vec(be_verbose, &settings, "servers"),
+    server_port: s_get_i64(be_verbose, &settings, "server_port", 0x1de0 /*7648*/) as u16,
     server_max_records: s_get_i64(be_verbose, &settings, "server_max_records", 8080) as usize,
     server_max_unauth_websockets: s_get_i64(be_verbose, &settings, "server_max_unauth_websockets", 8080) as usize,
     server_num_record_pools: s_get_i64(be_verbose, &settings, "server_num_record_pools", 8) as usize,
