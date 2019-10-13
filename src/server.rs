@@ -20,21 +20,24 @@
 use crossbeam_utils::thread;
 
 use crate::config::Config;
+use crate::data::Data;
 
 pub fn run_sync(config: &Config) {
+  let data = Data::new(config);
+  
   thread::scope(|s| {
     let mut handlers = vec![];
     
-    handlers.push(s.spawn(move |_| {
-      run_tcp_sync(config);
+    handlers.push(s.spawn(|_| {
+      run_tcp_sync(config, &data);
     }));
     
-    handlers.push(s.spawn(move |_| {
-      run_udp_sync(config);
+    handlers.push(s.spawn(|_| {
+      run_udp_sync(config, &data);
     }));
     
-    handlers.push(s.spawn(move |_| {
-      run_unix_sync(config);
+    handlers.push(s.spawn(|_| {
+      run_unix_sync(config, &data);
     }));
     
     for h in handlers {
@@ -43,16 +46,16 @@ pub fn run_sync(config: &Config) {
   }).unwrap();
 }
 
-fn run_tcp_sync(config: &Config) {
+fn run_tcp_sync(config: &Config, data: &Data) {
   println!("tcp starting on 0.0.0.0:{}", config.server_port);
   
 }
 
-fn run_udp_sync(config: &Config) {
+fn run_udp_sync(config: &Config, data: &Data) {
   println!("udp starting on 0.0.0.0:{}", config.server_port);
   
 }
 
-fn run_unix_sync(config: &Config) {
+fn run_unix_sync(config: &Config, data: &Data) {
   
 }
