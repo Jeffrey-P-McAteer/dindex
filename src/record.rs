@@ -18,6 +18,7 @@
  */
 
 use serde;
+use regex::Regex;
 
 use std::collections::HashMap;
 
@@ -26,3 +27,8 @@ pub struct Record {
   pub p: HashMap<String, String>,
 }
 
+impl Record {
+  pub fn matches(&self, query: &HashMap<String, Regex>) -> bool {
+    false // TODO
+  }
+}

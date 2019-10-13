@@ -31,5 +31,5 @@ ws = "0.9.0"
 structopt = "0.2"
 # Helps structopt parse enums gracefully
 clap = "2"
-
-
+# Helpes determine number of CPU cores
+num_cpus = "1.10.1"

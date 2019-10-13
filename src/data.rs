@@ -18,8 +18,10 @@
  */
 
 use regex::Regex;
+use num_cpus;
+use crossbeam_utils::thread;
 
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, Mutex};
 use std::collections::HashMap;
 
 use crate::record::Record;
@@ -52,12 +54,64 @@ impl Data {
     }
   }
   pub fn search(&self, query: &HashMap<String, Regex>) -> Vec<Record> {
-    let results = vec![];
-    for pool in self.record_pools.iter() {
-      if let Ok(pool) = pool.try_read() {
-        std::unimplemented!()
+    let cpus = num_cpus::get();
+    let results = Arc::new(Mutex::new(vec![]));
+    
+    thread::scope(|s| {
+      let mut handlers = vec![];
+      
+      let pools_per_thread = self.record_pools.len() / cpus;
+      let pools_remainder = self.record_pools.len() % cpus;
+      
+      for thread_num in 0..cpus {
+        // search from (thread_num*pools_per_thread) to ((thread_num+1)*pools_per_thread)
+        let mut pool_refs = vec![];
+        for pool in &self.record_pools[(thread_num*pools_per_thread)..((thread_num+1)*pools_per_thread)] {
+          pool_refs.push(pool);
+        }
+        // Spawn thread to search all pool refs
+        let thread_results = results.clone();
+        handlers.push(s.spawn(move |_| {
+          for p in pool_refs {
+            if let Ok(p) = p.try_read() {
+              for rec in p.iter() {
+                if rec.matches(query) {
+                  if let Ok(mut lock) = thread_results.lock() {
+                    lock.push(rec.clone());
+                  }
+                }
+              }
+            }
+          }
+        }));
       }
-    }
-    return results;
+      // last thread needs to search (cpus*pools_per_thread) to (cpus*pools_per_thread)+pools_remainder
+      {
+        let mut pool_refs = vec![];
+        for pool in &self.record_pools[(cpus*pools_per_thread)..(cpus*pools_per_thread)+pools_remainder] {
+          pool_refs.push(pool);
+        }
+        // Spawn thread to search all pool refs
+        let thread_results = results.clone();
+        handlers.push(s.spawn(move |_| {
+          for p in pool_refs {
+            if let Ok(p) = p.try_read() {
+              for rec in p.iter() {
+                if rec.matches(query) {
+                  if let Ok(mut lock) = thread_results.lock() {
+                    lock.push(rec.clone());
+                  }
+                }
+              }
+            }
+          }
+        }));
+      }
+      
+      for h in handlers {
+        h.join().unwrap();
+      }
+    }).unwrap();
+    return Arc::try_unwrap(results).unwrap().into_inner().unwrap();
   }
 }
