@@ -103,35 +103,14 @@ fn run_websocket_sync(config: &config::Config) {
       move |msg: ws::Message| {
           // msg contains raw typed in search query
           if let ws::Message::Text(msg) = msg {
+            let args: Vec<String> = msg.split_whitespace()
+                                       .map(|s| s.to_string().clone())
+                                       .collect();
+            let query_rec = crate::args::parse_record(&args, config.verbosity_level, config);
+            let results = crate::client::query_sync(config, &query_rec);
             
-            // Debug/Test records
-            let r1 = record::Record {
-              p: h_map!{
-                "title".to_string() => "Some Nonsense".to_string(),
-                "url".to_string() => "http://example.org".to_string(),
-                "description".to_string() => "Lorem ipsum nonsense".to_string()
-              }
-            };
-            let r2 = record::Record {
-              p: h_map!{
-                "name".to_string() => "Jeffrey".to_string(),
-                "phone_number".to_string() => "555-123-4444".to_string(),
-                "description".to_string() => "Guy with too much code on his hands".to_string()
-              }
-            };
+            let payload = serde_json::to_string(&BrowserCmd::replace(results)).unwrap_or(String::new());
             
-            let payload = if msg.len() < 1 {
-              serde_json::to_string(&BrowserCmd::append(vec![])).unwrap_or(String::new())
-            }
-            else if msg.len() < 2 {
-              serde_json::to_string(&BrowserCmd::append(vec![r1])).unwrap_or(String::new())
-            }
-            else if msg.len() < 3 {
-              serde_json::to_string(&BrowserCmd::append(vec![r1, r2])).unwrap_or(String::new())
-            }
-            else {
-              serde_json::to_string(&BrowserCmd::replace(vec![r1, r2])).unwrap_or(String::new())
-            };
             out.send(payload)
           }
           else {

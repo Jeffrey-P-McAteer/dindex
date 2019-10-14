@@ -263,34 +263,6 @@ fn handle_tcp_conn(stream: Result<std::net::TcpStream, std::io::Error>, config: 
               // so we do not limit the search space.
               return true;
             });
-            /* BEGIN SOME DEBUG NONSENSE **/
-            // Send a dummy record back for testing
-            if config.is_debug() {
-              for _ in 0..3 {
-                let wire_data = WireData {
-                  action: Action::result,
-                  record: Record {
-                    p: h_map!{
-                      "title".to_string() => "Some Nonsense".to_string(),
-                      "url".to_string() => "http://example.org".to_string(),
-                      "description".to_string() => "Lorem ipsum nonsense".to_string()
-                    }
-                  },
-                };
-                if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
-                  if let Ok(mut stream) = ts_stream.lock() {
-                    if let Err(e) = stream.write(&bytes) {
-                      println!("Error sending result to TCP client: {}", e);
-                    }
-                    // Write packet seperation byte
-                    if let Err(e) = stream.write(&[0xff]) {
-                      println!("Error sending result to TCP client: {}", e);
-                    }
-                  }
-                }
-              }
-            }
-            /* END DEBUG NONSENSE **/
             // Tell clients connection should be closed
             let wire_data = WireData {
               action: Action::end_of_results,

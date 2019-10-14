@@ -58,39 +58,42 @@ impl Args {
   // If no known types match, concatinates rec_args and parses as JSON.
   // Failing that, returns an empty record
   pub fn get_record(&self, config: &Config) -> Record {
-    if let Some(ctype_name) = self.rec_args.get(0) {
-      for ctype in &config.ctypes {
-        if ctype.name.eq(ctype_name) {
-          // Found a matching ctype, put key names in
-          let arg_vals = &self.rec_args[1..];
-          let mut rec = Record::empty();
-          for (key_name, extra_arg_val) in ctype.key_names.iter().zip(arg_vals.iter()) {
-            rec.p.insert(key_name.to_string(), extra_arg_val.to_string());
+    return parse_record(&self.rec_args, self.verbose, config);
+  }
+}
+
+pub fn parse_record(args: &Vec<String>, verbose: u8, config: &Config) -> Record {
+  if let Some(ctype_name) = args.get(0) {
+    for ctype in &config.ctypes {
+      if ctype.name.eq(ctype_name) {
+        // Found a matching ctype, put key names in
+        let arg_vals = &args[1..];
+        let mut rec = Record::empty();
+        for (key_name, extra_arg_val) in ctype.key_names.iter().zip(arg_vals.iter()) {
+          rec.p.insert(key_name.to_string(), extra_arg_val.to_string());
+        }
+        if !rec.p.is_empty() {
+          if verbose > 0 {
+            println!("arg record = {:?}", &rec);
           }
-          if !rec.p.is_empty() {
-            if self.verbose > 0 {
-              println!("arg record = {:?}", &rec);
-            }
-            return rec;
-          }
+          return rec;
         }
       }
     }
-    // No ctypes matched in rec_args[0], concatinate all + parse as JSON
-    let joined = self.rec_args.join(" ");
-    let joined = format!("{{\"p\":{} }}", joined); // Wrap it so we can use serde directly
-    if let Ok(rec) = serde_json::from_str(&joined) {
-      if self.verbose > 0 {
-        println!("arg record = {:?}", &rec);
-      }
-      return rec;
-    }
-    
-    let rec = Record::empty();
-    if self.verbose > 0 {
+  }
+  // No ctypes matched in rec_args[0], concatinate all + parse as JSON
+  let joined = args.join(" ");
+  let joined = format!("{{\"p\":{} }}", joined); // Wrap it so we can use serde directly
+  if let Ok(rec) = serde_json::from_str(&joined) {
+    if verbose > 0 {
       println!("arg record = {:?}", &rec);
     }
     return rec;
   }
+  
+  let rec = Record::empty();
+  if verbose > 0 {
+    println!("arg record = {:?}", &rec);
+  }
+  return rec;
 }
-
