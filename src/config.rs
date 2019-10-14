@@ -52,6 +52,9 @@ pub struct Config {
   pub client_http_custom_js: String,
   pub client_http_custom_css: String,
   
+  // Copied in from args, or can be specified in config .toml
+  pub verbosity_level: u8,
+  
   // In client: servers to query in parallel.
   // In server: federated servers to forward queries to
   pub servers: Vec<Server>,
@@ -102,6 +105,12 @@ pub struct CType {
   pub key_names: Vec<String>, // order matters
 }
 
+impl Config {
+  pub fn is_debug(&self) -> bool {
+    return cfg!(debug_assertions) || self.verbosity_level > 0;
+  }
+}
+
 impl ServerProtocol {
   pub fn from_str<S: Into<String>>(s: S) -> ServerProtocol {
     let s = s.into();
@@ -120,14 +129,14 @@ impl ServerProtocol {
 pub fn read_config(a : &args::Args) -> Config {
   let be_verbose = cfg!(debug_assertions) || a.verbose > 0;
   if let Some(config_file) = &a.config_file {
-    return get_config_detail(be_verbose, true, true, true, Ok(config_file.to_string()));
+    return get_config_detail(be_verbose, true, true, true, Ok(config_file.to_string()), a);
   }
   else {
-    return get_config_detail(be_verbose, true, true, true, std::env::var("DINDEX_CONF"));
+    return get_config_detail(be_verbose, true, true, true, std::env::var("DINDEX_CONF"), a);
   }
 }
 
-pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, check_env: bool, other_config_file: Result<String, std::env::VarError>) -> Config {
+pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, check_env: bool, other_config_file: Result<String, std::env::VarError>, args: &args::Args) -> Config {
   let mut settings = config::Config::default();
   
   if check_etc {
@@ -137,7 +146,7 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
         if be_verbose {
           println!("{}", e);
         }
-        return get_config_detail(be_verbose, false, check_user, check_env, other_config_file);
+        return get_config_detail(be_verbose, false, check_user, check_env, other_config_file, args);
       }
     }
   }
@@ -152,7 +161,7 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
         if be_verbose {
           println!("{}", e);
         }
-        return get_config_detail(be_verbose, check_etc, false, check_env, other_config_file);
+        return get_config_detail(be_verbose, check_etc, false, check_env, other_config_file, args);
       }
     }
   }
@@ -164,7 +173,7 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
         if be_verbose {
           println!("{}", e);
         }
-        return get_config_detail(be_verbose, check_etc, check_user, false, other_config_file);
+        return get_config_detail(be_verbose, check_etc, check_user, false, other_config_file, args);
       }
     }
   }
@@ -176,7 +185,7 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
         if be_verbose {
           println!("{}", e);
         }
-        return get_config_detail(be_verbose, check_etc, false, check_env, Err(std::env::VarError::NotPresent));
+        return get_config_detail(be_verbose, check_etc, false, check_env, Err(std::env::VarError::NotPresent), args);
       }
     }
   }
@@ -190,6 +199,7 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
     client_http_websocket_port: s_get_i64(be_verbose, &settings, "client_http_websocket_port", 8081) as u16,
     client_http_custom_js: s_get_str(be_verbose, &settings, "client_http_custom_js", include_str!("http/example_custom_js.js")),
     client_http_custom_css: s_get_str(be_verbose, &settings, "client_http_custom_css", include_str!("http/example_custom_css.css")),
+    verbosity_level: s_get_i64(be_verbose, &settings, "verbosity_level", args.verbose as i64) as u8,
     servers: s_get_server_vec(be_verbose, &settings, "servers"),
     server_port: s_get_i64(be_verbose, &settings, "server_port", 0x1de0 /*7648*/) as u16,
     server_ip: s_get_str(be_verbose, &settings, "server_ip", "0.0.0.0"),

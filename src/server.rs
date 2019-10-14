@@ -199,8 +199,8 @@ fn write_stored_records_json_file(mut json_f: File, data: &mut Data) {
 
 fn handle_tcp_conn(stream: Result<std::net::TcpStream, std::io::Error>, config: &Config, data: &Data) {
   use std::time::Duration;
-  use std::sync::atomic::AtomicIsize;
   use std::sync::{Arc, Mutex};
+  use crate::h_map;
   
   if let Ok(mut stream) = stream {
     if let Err(e) = stream.set_read_timeout(Some(Duration::from_millis(1024))) {
@@ -209,19 +209,35 @@ fn handle_tcp_conn(stream: Result<std::net::TcpStream, std::io::Error>, config: 
     if let Err(e) = stream.set_write_timeout(Some(Duration::from_millis(1024))) {
       println!("Error setting TCP write timeout: {}", e);
     }
-    // Clients will send a WireData object
-    let mut buffer = vec![];
-    if let Err(e) = stream.read_to_end(&mut buffer) {
-      println!("Error reading TCP data from client: {}", e);
-      return;
+    // Clients will send a WireData object and then 0xff ("break" stop code in the CBOR spec (rfc 7049))
+    let mut complete_buff: Vec<u8> = vec![];
+    let mut buff = [0; 4 * 1024];
+    while ! complete_buff.contains(&0xff) {
+      match stream.read(&mut buff) {
+        Ok(num_read) => {
+          complete_buff.extend_from_slice(&buff[0..num_read]);
+        }
+        Err(e) => {
+          println!("Error reading TCP data from client: {}", e);
+          return;
+        }
+      }
     }
+    // Remove last 0xff byte from complete_buff
+    if complete_buff.last().eq(&Some(&0xff)) {
+      complete_buff.pop();
+    }
+    
     // Parse bytes to WireData
-    match serde_cbor::from_slice::<WireData>(&buffer) {
+    match serde_cbor::from_slice::<WireData>(&complete_buff[..]) {
       Err(e) => {
         println!("Error reading WireData from TCP client: {}", e);
         return;
       }
       Ok(wire_data) => {
+        if config.is_debug() {
+          println!("got connection, wire_data={:?}", wire_data);
+        }
         match wire_data.action {
           Action::query => {
             let ts_stream = Arc::new(Mutex::new(stream));
@@ -236,12 +252,61 @@ fn handle_tcp_conn(stream: Result<std::net::TcpStream, std::io::Error>, config: 
                     println!("Error sending result to TCP client: {}", e);
                     return false; // stop querying, client has likely exited
                   }
+                  // Write packet seperation byte
+                  if let Err(e) = stream.write(&[0xff]) {
+                    println!("Error sending result to TCP client: {}", e);
+                    return false; // stop querying, client has likely exited
+                  }
                 }
               }
               // We can never have an amplification attack via TCP,
               // so we do not limit the search space.
               return true;
             });
+            /* BEGIN SOME DEBUG NONSENSE **/
+            // Send a dummy record back for testing
+            if config.is_debug() {
+              for _ in 0..3 {
+                let wire_data = WireData {
+                  action: Action::result,
+                  record: Record {
+                    p: h_map!{
+                      "title".to_string() => "Some Nonsense".to_string(),
+                      "url".to_string() => "http://example.org".to_string(),
+                      "description".to_string() => "Lorem ipsum nonsense".to_string()
+                    }
+                  },
+                };
+                if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
+                  if let Ok(mut stream) = ts_stream.lock() {
+                    if let Err(e) = stream.write(&bytes) {
+                      println!("Error sending result to TCP client: {}", e);
+                    }
+                    // Write packet seperation byte
+                    if let Err(e) = stream.write(&[0xff]) {
+                      println!("Error sending result to TCP client: {}", e);
+                    }
+                  }
+                }
+              }
+            }
+            /* END DEBUG NONSENSE **/
+            // Tell clients connection should be closed
+            let wire_data = WireData {
+              action: Action::end_of_results,
+              record: Record::empty()
+            };
+            if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
+              if let Ok(mut stream) = ts_stream.lock() {
+                if let Err(e) = stream.write(&bytes) {
+                  println!("Error sending result to TCP client: {}", e);
+                }
+                // Write packet seperation byte
+                if let Err(e) = stream.write(&[0xff]) {
+                  println!("Error sending result to TCP client: {}", e);
+                }
+              }
+            }
           }
           Action::publish => {
             std::unimplemented!()

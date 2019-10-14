@@ -37,6 +37,7 @@ arg_enum! {
       
       // Generally sent server -> client
       result = 3,
+      end_of_results = 4,
       
       // The remaining arguments are NOT designed to be sent over the wire,
       // but instead are used by the CLI tool.

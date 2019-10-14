@@ -29,7 +29,7 @@ use crate::config;
 use crate::record;
 
 #[macro_use]
-
+#[macro_export]
 macro_rules! h_map(
     { $($key:expr => $value:expr),+ } => {
         {
