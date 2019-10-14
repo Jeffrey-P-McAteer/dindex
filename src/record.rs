@@ -34,7 +34,25 @@ impl Record {
     }
   }
   pub fn matches(&self, query: &HashMap<String, Regex>) -> bool {
-    false // TODO
+    let mut common_keys = vec![];
+    for key in self.p.keys() {
+      if query.contains_key(key) {
+        common_keys.push(key);
+      }
+    }
+    if common_keys.len() < 1 {
+      return false;
+    }
+    // Only a match if ALL key reges searches match
+    for key in common_keys {
+      let re = query.get(key).unwrap();
+      let val = self.p.get(key).unwrap();
+      if ! re.is_match(val) {
+        return false; // One of the keys failed, none of this is a match
+      }
+    }
+    // All shared key regexes matched, this is a match
+    return true;
   }
   pub fn create_regex_map(&self) -> HashMap<String, Regex> {
     let mut map = HashMap::new();
