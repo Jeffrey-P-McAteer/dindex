@@ -17,42 +17,15 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-// Required for from_args() on args::Args
-use structopt::StructOpt;
+use serde;
 
-mod config;
-mod args;
-mod record;
-mod actions;
+use crate::actions::Action;
+use crate::record::Record;
 
-mod http_client;
-mod server;
-mod data;
-mod wire;
-
-fn main() {
-  let args = args::Args::from_args();
-  let conf = config::read_config(&args);
-  
-  match args.action {
-    actions::Action::query => {
-      std::unimplemented!()
-    }
-    actions::Action::publish => {
-      std::unimplemented!()
-    }
-    actions::Action::listen => {
-      std::unimplemented!()
-    }
-    actions::Action::run_server => {
-      server::run_sync(&conf);
-    }
-    actions::Action::run_http_client => {
-      http_client::run_sync(&conf);
-    }
-    other => {
-      println!("Cannot handle action {}", other);
-    }
-  }
-  
+// This represents data send to/from servers and clients over
+// any tcp, udp, or unix socket connection.
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct WireData {
+  pub action: Action,
+  pub record: Record,
 }

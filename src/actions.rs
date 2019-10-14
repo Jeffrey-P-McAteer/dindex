@@ -29,9 +29,15 @@ arg_enum! {
   #[repr(u8)]
   pub enum Action {
       // We serialize as a number to guarantee a standard representation.
+      
+      // Generally sent client -> server
       query = 0,
       publish = 1,
       listen = 2,
+      
+      // Generally sent server -> client
+      result = 3,
+      
       // The remaining arguments are NOT designed to be sent over the wire,
       // but instead are used by the CLI tool.
       run_server,

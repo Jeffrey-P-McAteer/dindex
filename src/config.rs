@@ -58,6 +58,12 @@ pub struct Config {
   
   // Servers listen on TCP and UDP on this port
   pub server_port: u16,
+  pub server_ip: String,
+  // If more than this many threads are currently active, we will
+  // block incoming connections until the oldest fraction of threads complete.
+  pub server_threads_in_flight: usize,
+  // Fraction of threads we wait to complete when above threadhold is reached
+  pub server_threads_in_flight_fraction: f64,
   
   // URI like file:///tmp/database.json or mysql://user:pass@host/database
   // which is used to store data. Eventually a custom URL handler may be defined.
@@ -112,11 +118,12 @@ impl ServerProtocol {
 }
 
 pub fn read_config(a : &args::Args) -> Config {
+  let be_verbose = cfg!(debug_assertions) || a.verbose > 0;
   if let Some(config_file) = &a.config_file {
-    return get_config_detail(cfg!(debug_assertions), true, true, true, Ok(config_file.to_string()));
+    return get_config_detail(be_verbose, true, true, true, Ok(config_file.to_string()));
   }
   else {
-    return get_config_detail(cfg!(debug_assertions), true, true, true, std::env::var("DINDEX_CONF"));
+    return get_config_detail(be_verbose, true, true, true, std::env::var("DINDEX_CONF"));
   }
 }
 
@@ -185,6 +192,9 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
     client_http_custom_css: s_get_str(be_verbose, &settings, "client_http_custom_css", include_str!("http/example_custom_css.css")),
     servers: s_get_server_vec(be_verbose, &settings, "servers"),
     server_port: s_get_i64(be_verbose, &settings, "server_port", 0x1de0 /*7648*/) as u16,
+    server_ip: s_get_str(be_verbose, &settings, "server_ip", "0.0.0.0"),
+    server_threads_in_flight: s_get_i64(be_verbose, &settings, "server_threads_in_flight", 8) as usize,
+    server_threads_in_flight_fraction: s_get_f64(be_verbose, &settings, "server_threads_in_flight_fraction", 0.25),
     server_datastore_uri: s_get_str(be_verbose, &settings, "server_datastore_uri", "file:///tmp/dindex_db.json"),
     server_max_records: s_get_i64(be_verbose, &settings, "server_max_records", 8080) as usize,
     server_max_unauth_websockets: s_get_i64(be_verbose, &settings, "server_max_unauth_websockets", 8080) as usize,
@@ -370,6 +380,18 @@ fn v_get_str_of(be_verbose: bool, src: &HashMap<String, config::Value>, key: &st
 
 fn s_get_i64(be_verbose: bool, settings: &config::Config, key: &str, default: i64) -> i64 {
   match settings.get_int(key) {
+    Ok(val) => { return val; }
+    Err(e) => {
+      if be_verbose {
+        println!("{}", e);
+      }
+      return default;
+    }
+  }
+}
+
+fn s_get_f64(be_verbose: bool, settings: &config::Config, key: &str, default: f64) -> f64 {
+  match settings.get_float(key) {
     Ok(val) => { return val; }
     Err(e) => {
       if be_verbose {

@@ -114,4 +114,63 @@ impl Data {
     }).unwrap();
     return Arc::try_unwrap(results).unwrap().into_inner().unwrap();
   }
+  pub fn search_callback<F: FnMut(&Record) -> bool>(&self, query: &HashMap<String, Regex>, mut on_result: F)
+    where F: Send + Copy,
+  {
+    let cpus = num_cpus::get();
+    
+    thread::scope(|s| {
+      let mut handlers = vec![];
+      
+      let pools_per_thread = self.record_pools.len() / cpus;
+      let pools_remainder = self.record_pools.len() % cpus;
+      
+      for thread_num in 0..cpus {
+        // search from (thread_num*pools_per_thread) to ((thread_num+1)*pools_per_thread)
+        let mut pool_refs = vec![];
+        for pool in &self.record_pools[(thread_num*pools_per_thread)..((thread_num+1)*pools_per_thread)] {
+          pool_refs.push(pool);
+        }
+        // Spawn thread to search all pool refs
+        handlers.push(s.spawn(move |_| {
+          for p in pool_refs {
+            if let Ok(p) = p.try_read() {
+              for rec in p.iter() {
+                if rec.matches(query) {
+                  if ! on_result(rec) {
+                    break; // Caller says we have hit limit of records to search
+                  }
+                }
+              }
+            }
+          }
+        }));
+      }
+      // last thread needs to search (cpus*pools_per_thread) to (cpus*pools_per_thread)+pools_remainder
+      {
+        let mut pool_refs = vec![];
+        for pool in &self.record_pools[(cpus*pools_per_thread)..(cpus*pools_per_thread)+pools_remainder] {
+          pool_refs.push(pool);
+        }
+        // Spawn thread to search all pool refs
+        handlers.push(s.spawn(move |_| {
+          for p in pool_refs {
+            if let Ok(p) = p.try_read() {
+              for rec in p.iter() {
+                if rec.matches(query) {
+                  if ! on_result(rec) {
+                    break; // Caller says we have hit limit of records to search
+                  }
+                }
+              }
+            }
+          }
+        }));
+      }
+      
+      for h in handlers {
+        h.join().unwrap();
+      }
+    }).unwrap();
+  }
 }

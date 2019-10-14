@@ -31,4 +31,13 @@ impl Record {
   pub fn matches(&self, query: &HashMap<String, Regex>) -> bool {
     false // TODO
   }
+  pub fn create_regex_map(&self) -> HashMap<String, Regex> {
+    let mut map = HashMap::new();
+    for (key, val) in &self.p {
+      if let Ok(r) = Regex::new(&val) {
+        map.insert(key.to_string(), r);
+      }
+    }
+    return map;
+  }
 }

@@ -26,6 +26,8 @@ use std::io::prelude::*;
 use crate::config::Config;
 use crate::data::Data;
 use crate::record::Record;
+use crate::wire::WireData;
+use crate::actions::Action;
 
 pub fn run_sync(config: &Config) {
   let mut data = Data::new(config);
@@ -54,8 +56,46 @@ pub fn run_sync(config: &Config) {
 }
 
 fn run_tcp_sync(config: &Config, data: &Data) {
-  println!("tcp starting on 0.0.0.0:{}", config.server_port);
+  use std::net::TcpListener;
+  use std::collections::VecDeque;
   
+  let ip_port = format!("{}:{}", config.server_ip, config.server_port);
+  println!("tcp starting on {}", &ip_port);
+  
+  match TcpListener::bind(&ip_port) {
+    Ok(listener) => {
+      thread::scope(|s| {
+        let mut handlers = VecDeque::new();
+        handlers.reserve_exact(config.server_threads_in_flight + 4);
+        
+        for stream in listener.incoming() {
+          handlers.push_back(s.spawn(|_| {
+            handle_tcp_conn(stream, config, data);
+          }));
+          // Housekeeping
+          if handlers.len() > config.server_threads_in_flight {
+            let threads_to_join = (handlers.len() as f64 * config.server_threads_in_flight_fraction) as usize;
+            // Pop up to threads_to_join thread handles and join on them
+            for _ in 0..threads_to_join {
+              if let Some(h) = handlers.pop_front() {
+                if let Err(e) = h.join() {
+                  println!("Error joining TCP thread: {:?}", e);
+                }
+              }
+            }
+          }
+        }
+        
+        for h in handlers {
+          h.join().unwrap();
+        }
+        
+      }).unwrap();
+    }
+    Err(e) => {
+      println!("Error starting TCP server: {}", e);
+    }
+  }
 }
 
 fn run_udp_sync(config: &Config, data: &Data) {
@@ -154,6 +194,69 @@ fn write_stored_records_json_file(mut json_f: File, data: &mut Data) {
   
   if let Err(e) = json_f.write_all(records_json_s.as_bytes()) {
     println!("Unable to write new data to db: {}", e);
+  }
+}
+
+fn handle_tcp_conn(stream: Result<std::net::TcpStream, std::io::Error>, config: &Config, data: &Data) {
+  use std::time::Duration;
+  use std::sync::atomic::AtomicIsize;
+  use std::sync::{Arc, Mutex};
+  
+  if let Ok(mut stream) = stream {
+    if let Err(e) = stream.set_read_timeout(Some(Duration::from_millis(1024))) {
+      println!("Error setting TCP read timeout: {}", e);
+    }
+    if let Err(e) = stream.set_write_timeout(Some(Duration::from_millis(1024))) {
+      println!("Error setting TCP write timeout: {}", e);
+    }
+    // Clients will send a WireData object
+    let mut buffer = vec![];
+    if let Err(e) = stream.read_to_end(&mut buffer) {
+      println!("Error reading TCP data from client: {}", e);
+      return;
+    }
+    // Parse bytes to WireData
+    match serde_cbor::from_slice::<WireData>(&buffer) {
+      Err(e) => {
+        println!("Error reading WireData from TCP client: {}", e);
+        return;
+      }
+      Ok(wire_data) => {
+        match wire_data.action {
+          Action::query => {
+            let ts_stream = Arc::new(Mutex::new(stream));
+            data.search_callback(&wire_data.record.create_regex_map(), |result| {
+              let wire_data = WireData {
+                action: Action::result,
+                record: result.clone(),
+              };
+              if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
+                if let Ok(mut stream) = ts_stream.lock() {
+                  if let Err(e) = stream.write(&bytes) {
+                    println!("Error sending result to TCP client: {}", e);
+                    return false; // stop querying, client has likely exited
+                  }
+                }
+              }
+              // We can never have an amplification attack via TCP,
+              // so we do not limit the search space.
+              return true;
+            });
+          }
+          Action::publish => {
+            std::unimplemented!()
+          }
+          Action::listen => {
+            std::unimplemented!()
+          }
+          unk => {
+            println!("Error: unknown action {}", unk);
+            return;
+          }
+        }
+      }
+    }
+    
   }
 }
 
