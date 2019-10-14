@@ -28,6 +28,11 @@ pub struct Record {
 }
 
 impl Record {
+  pub fn empty() -> Record {
+    Record {
+      p: HashMap::new()
+    }
+  }
   pub fn matches(&self, query: &HashMap<String, Regex>) -> bool {
     false // TODO
   }

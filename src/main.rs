@@ -27,6 +27,7 @@ mod actions;
 
 mod http_client;
 mod server;
+mod client;
 mod data;
 mod wire;
 
@@ -36,7 +37,8 @@ fn main() {
   
   match args.action {
     actions::Action::query => {
-      std::unimplemented!()
+      let res = client::query_sync(&conf, &args.get_record(&conf));
+      print_results(&conf, &res);
     }
     actions::Action::publish => {
       std::unimplemented!()
@@ -55,4 +57,11 @@ fn main() {
     }
   }
   
+}
+
+fn print_results(config: &config::Config, results: &Vec<record::Record>) {
+  for res in results {
+    // TODO custom formatting from config/ctypes/whatever
+    println!("res = {:?}", res.p);
+  }
 }
