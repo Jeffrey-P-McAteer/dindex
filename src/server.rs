@@ -191,7 +191,7 @@ fn write_stored_records_json_file(mut json_f: File, data: &Data) {
   // TODO can we serialize without cloning everything OR without locking everything?
   let mut records = vec![];
   for pool in data.record_pools.iter() {
-    let mut read_retries = 5;
+    let read_retries = 5;
     for _ in 0..read_retries {
       if let Ok(pool) = pool.try_read() {
         for rec in pool.iter() {
