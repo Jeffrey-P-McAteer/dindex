@@ -33,6 +33,9 @@ impl Record {
       p: HashMap::new()
     }
   }
+  pub fn is_empty(&self) -> bool {
+    self.p.is_empty()
+  }
   pub fn matches(&self, query: &HashMap<String, Regex>) -> bool {
     let mut common_keys = vec![];
     for key in self.p.keys() {

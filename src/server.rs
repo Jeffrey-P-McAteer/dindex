@@ -143,7 +143,7 @@ fn read_stored_records(config: &Config, data: &mut Data) {
   }
 }
 
-fn write_stored_records(config: &Config, data: &mut Data) {
+fn write_stored_records(config: &Config, data: &Data) {
   let uri_s = &config.server_datastore_uri;
   if let Ok(uri) = Url::parse(uri_s) {
     match uri.scheme() {
@@ -187,7 +187,7 @@ fn read_stored_records_json_file(mut json_f: File, data: &mut Data) {
   }
 }
 
-fn write_stored_records_json_file(mut json_f: File, data: &mut Data) {
+fn write_stored_records_json_file(mut json_f: File, data: &Data) {
   // TODO can we serialize without cloning everything OR without locking everything?
   let mut records = vec![];
   for pool in data.record_pools.iter() {
@@ -295,7 +295,12 @@ fn handle_tcp_conn(stream: Result<std::net::TcpStream, std::io::Error>, config: 
             }
           }
           Action::publish => {
-            data.insert(wire_data.record);
+            if ! wire_data.record.is_empty() {
+              data.insert(wire_data.record);
+            }
+            // For now just dump entire Data to storage whenever something is added
+            // TODO optimize etc etc
+            write_stored_records(config, &data);
           }
           Action::listen => {
             std::unimplemented!()

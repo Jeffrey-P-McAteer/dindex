@@ -41,7 +41,13 @@ fn main() {
       print_results(&conf, &res);
     }
     actions::Action::publish => {
-      std::unimplemented!()
+      let rec = args.get_record(&conf);
+      if rec.is_empty() {
+        println!("Error: refusing to publish empty record!");
+      }
+      else {
+        client::publish_sync(&conf, &rec);
+      }
     }
     actions::Action::listen => {
       std::unimplemented!()
