@@ -30,6 +30,74 @@ use crate::record::Record;
 use crate::actions::Action;
 use crate::wire::WireData;
 
+pub fn publish_sync(config: &Config, query: &Record) {
+  thread::scope(|s| {
+    let mut handlers = vec![];
+    
+    for server in &config.servers {
+      let t_server = server.clone();
+      handlers.push(s.spawn(move |_| {
+        publish_server_sync(config, &t_server, query);
+      }));
+    }
+    
+    for h in handlers {
+      h.join().unwrap();
+    }
+  }).unwrap();
+  
+}
+
+pub fn publish_server_sync(config: &Config, server: &Server, rec: &Record) {
+  match server.protocol {
+    ServerProtocol::TCP => {
+      publish_tcp_server_sync(config, server, rec);
+    }
+    ServerProtocol::UDP => {
+      std::unimplemented!()
+    }
+    ServerProtocol::UNIX => {
+      std::unimplemented!()
+    }
+  }
+}
+
+pub fn publish_tcp_server_sync(_config: &Config, server: &Server, rec: &Record) {
+  use std::net::TcpStream;
+  
+  let wire_data = WireData {
+    action: Action::publish,
+    record: rec.clone(),
+  };
+  
+  let ip_and_port = format!("{}:{}", server.host, server.port);
+  match TcpStream::connect(&ip_and_port) {
+    Ok(mut stream) => {
+      if let Err(e) = stream.set_read_timeout(Some(Duration::from_millis(1024))) {
+        println!("Error setting TCP read timeout: {}", e);
+      }
+      if let Err(e) = stream.set_write_timeout(Some(Duration::from_millis(1024))) {
+        println!("Error setting TCP write timeout: {}", e);
+      }
+      
+      if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
+        if let Err(e) = stream.write(&bytes) {
+          println!("Error sending WireData to server in publish_tcp_server_sync: {}", e);
+        }
+        // Write the terminal 0xff byte
+        if let Err(e) = stream.write(&[0xff]) {
+          println!("Error sending WireData to server in publish_tcp_server_sync: {}", e);
+        }
+      }
+      // At the moment we don't expect data back from the server
+    }
+    Err(e) => {
+      println!("Error in publish_tcp_server_sync: {}", e);
+    }
+  }
+  
+}
+
 pub fn query_sync(config: &Config, query: &Record) -> Vec<Record> {
   let results: Arc<Mutex<Vec<Record>>> = Arc::new(Mutex::new(vec![]));
   

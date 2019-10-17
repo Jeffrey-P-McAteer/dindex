@@ -43,6 +43,7 @@ fn server_store_retrieve() {
   test_config.server_port = port;
   test_config.server_ip = "127.0.0.1".to_string();
   
+  // Tell server not to store records outside this process's memory
   test_config.server_datastore_uri = "memory://".to_string();
   
   // Create a data store
@@ -70,6 +71,24 @@ fn server_store_retrieve() {
       };
       let results = dindex::client::query_sync(&test_config, &query_1);
       assert_eq!(results.len(), 0);
+      
+      // Add a record and check that it can be retrieved
+      let rec_1 = {
+        let mut rec = dindex::record::Record::empty();
+        rec.p.insert("NAME".to_string(), "Lorem ipsum dolor sit amet, consectetur adipiscing elit.".to_string());
+        rec.p.insert("URL".to_string(), "https://lipsum.com/".to_string());
+        rec
+      };
+      dindex::client::publish_sync(&test_config, &query_1);
+      
+      let results = dindex::client::query_sync(&test_config, &query_1);
+      assert_eq!(results.len(), 1);
+      
+      let empty_s = String::new();
+      let rec_1_url = results[0].p.get(&"URL".to_string()).unwrap_or(&empty_s);
+      assert_eq!(rec_1_url, "https://lipsum.com/");
+      // ^ now we know we got the same record back
+      
       
       // Instruct server to exit
       exit_flag.store(true, std::sync::atomic::Ordering::Relaxed);
