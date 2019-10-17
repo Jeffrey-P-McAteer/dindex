@@ -79,7 +79,7 @@ fn server_store_retrieve() {
         rec.p.insert("URL".to_string(), "https://lipsum.com/".to_string());
         rec
       };
-      dindex::client::publish_sync(&test_config, &query_1);
+      dindex::client::publish_sync(&test_config, &rec_1);
       
       let results = dindex::client::query_sync(&test_config, &query_1);
       assert_eq!(results.len(), 1);

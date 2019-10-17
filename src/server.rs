@@ -295,7 +295,7 @@ fn handle_tcp_conn(stream: Result<std::net::TcpStream, std::io::Error>, config: 
             }
           }
           Action::publish => {
-            std::unimplemented!()
+            data.insert(wire_data.record);
           }
           Action::listen => {
             std::unimplemented!()
