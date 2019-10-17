@@ -20,16 +20,16 @@
 // Required for from_args() on args::Args
 use structopt::StructOpt;
 
-mod config;
-mod args;
-mod record;
-mod actions;
+use dindex::config;
+use dindex::args;
+use dindex::record;
+use dindex::actions;
 
-mod http_client;
-mod server;
-mod client;
-mod data;
-mod wire;
+use dindex::http_client;
+use dindex::server;
+use dindex::client;
+use dindex::data;
+use dindex::wire;
 
 fn main() {
   let args = args::Args::from_args();

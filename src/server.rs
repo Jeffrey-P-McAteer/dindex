@@ -22,6 +22,7 @@ use url::{Url};
 
 use std::fs::File;
 use std::io::prelude::*;
+use std::sync::atomic::Ordering;
 
 use crate::config::Config;
 use crate::data::Data;
@@ -55,7 +56,7 @@ pub fn run_sync(config: &Config) {
   }).unwrap();
 }
 
-fn run_tcp_sync(config: &Config, data: &Data) {
+pub fn run_tcp_sync(config: &Config, data: &Data) {
   use std::net::TcpListener;
   use std::collections::VecDeque;
   
@@ -84,6 +85,11 @@ fn run_tcp_sync(config: &Config, data: &Data) {
               }
             }
           }
+          // Further housekeeping
+          if data.exit_flag.load(Ordering::Relaxed) {
+            println!("tcp exiting due to data.exit_flag");
+            break;
+          }
         }
         
         for h in handlers {
@@ -98,12 +104,12 @@ fn run_tcp_sync(config: &Config, data: &Data) {
   }
 }
 
-fn run_udp_sync(config: &Config, data: &Data) {
+pub fn run_udp_sync(config: &Config, data: &Data) {
   println!("udp starting on 0.0.0.0:{}", config.server_port);
   
 }
 
-fn run_unix_sync(config: &Config, data: &Data) {
+pub fn run_unix_sync(config: &Config, data: &Data) {
   
 }
 
@@ -122,6 +128,10 @@ fn read_stored_records(config: &Config, data: &mut Data) {
             println!("Error: reading server_datastore_uri; unknown filetype '{}'", path);
           }
         }
+      }
+      "memory" => {
+        // This specifies that the server should not read anything in,
+        // but instead use memory only to store records.
       }
       unk => {
         println!(
@@ -148,6 +158,10 @@ fn write_stored_records(config: &Config, data: &mut Data) {
             println!("Error: reading server_datastore_uri; unknown filetype '{}'", path);
           }
         }
+      }
+      "memory" => {
+        // This specifies that the server should not store records,
+        // but instead use memory only to store records.
       }
       unk => {
         println!(

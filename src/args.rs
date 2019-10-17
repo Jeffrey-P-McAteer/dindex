@@ -60,6 +60,15 @@ impl Args {
   pub fn get_record(&self, config: &Config) -> Record {
     return parse_record(&self.rec_args, self.verbose, config);
   }
+  pub fn empty() -> Args {
+    Args {
+      config_file: None,
+      verbose: 0,
+      action: Action::no_action,
+      signed: false,
+      rec_args: vec![]
+    }
+  }
 }
 
 pub fn parse_record(args: &Vec<String>, verbose: u8, config: &Config) -> Record {

@@ -22,19 +22,26 @@ use num_cpus;
 use crossbeam_utils::thread;
 
 use std::sync::{Arc, RwLock, Mutex};
+use std::sync::atomic::AtomicBool;
 use std::collections::HashMap;
 
 use crate::record::Record;
 use crate::config::Config;
 
+/**
+ * This represents data the server will use
+ */
 pub struct Data {
   pub record_pools: Arc<Vec<Arc<RwLock<Vec<Record>>>>>,
+  // When set to true server threads should exit (they may be blocked on IO however)
+  pub exit_flag: Arc<AtomicBool>,
 }
 
 impl Data {
   pub fn new(config: &Config) -> Data {
       let mut data = Data {
-        record_pools: Arc::new(vec![])
+        record_pools: Arc::new(vec![]),
+        exit_flag: Arc::new(AtomicBool::new(false)),
       };
       let record_pools = Arc::get_mut(&mut data.record_pools).unwrap();
       // Create memory pools
