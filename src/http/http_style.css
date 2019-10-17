@@ -3,13 +3,20 @@ html, body {
   color: #020202;
 }
 
-header {
+header, footer {
   display: flex;
   justify-content: flex-start;
   flex-direction: row;
 }
 
-input#simple_search {
+footer {
+  position: absolute;
+  bottom: 4pt;
+  right: 4pt;
+  left: 4pt;
+}
+
+input#simple_search, input#simple_publish {
   padding: 4pt 4pt;
   margin-right: 6pt;
   display: flex;
@@ -50,7 +57,7 @@ div.result {
     background: #073642;
     color: #839496;
   }
-  input#simple_search {
+  input#simple_search, input#simple_publish {
     background: #073642;
     color: #93a1a1;
     border-color: #a3b1b1;
@@ -66,7 +73,7 @@ div.result {
     background: white;
     color: #020202;
   }
-  input#simple_search {
+  input#simple_search, input#simple_publish {
     background: white;
     color: #020202;
     border-color: #303030;
