@@ -20,7 +20,7 @@
 use crossbeam_utils::thread;
 
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::io::prelude::*;
 
 use crate::config::Config;
@@ -73,10 +73,10 @@ pub fn publish_tcp_server_sync(_config: &Config, server: &Server, rec: &Record) 
   let ip_and_port = format!("{}:{}", server.host, server.port);
   match TcpStream::connect(&ip_and_port) {
     Ok(mut stream) => {
-      if let Err(e) = stream.set_read_timeout(Some(Duration::from_millis(1024))) {
+      if let Err(e) = stream.set_read_timeout(Some(Duration::from_millis(256))) {
         println!("Error setting TCP read timeout: {}", e);
       }
-      if let Err(e) = stream.set_write_timeout(Some(Duration::from_millis(1024))) {
+      if let Err(e) = stream.set_write_timeout(Some(Duration::from_millis(256))) {
         println!("Error setting TCP write timeout: {}", e);
       }
       
@@ -110,10 +110,10 @@ pub fn publish_udp_server_sync(_config: &Config, server: &Server, rec: &Record) 
   
   match UdpSocket::bind("0.0.0.0:0") {
     Ok(socket) => {
-      if let Err(e) = socket.set_read_timeout(Some(Duration::from_millis(1024))) {
+      if let Err(e) = socket.set_read_timeout(Some(Duration::from_millis(256))) {
         println!("Error setting UDP read timeout: {}", e);
       }
-      if let Err(e) = socket.set_write_timeout(Some(Duration::from_millis(1024))) {
+      if let Err(e) = socket.set_write_timeout(Some(Duration::from_millis(256))) {
         println!("Error setting UDP write timeout: {}", e);
       }
       
@@ -187,10 +187,10 @@ pub fn query_tcp_server_sync(config: &Config, server: &Server, query: &Record) -
   let ip_and_port = format!("{}:{}", server.host, server.port);
   match TcpStream::connect(&ip_and_port) {
     Ok(mut stream) => {
-      if let Err(e) = stream.set_read_timeout(Some(Duration::from_millis(1024))) {
+      if let Err(e) = stream.set_read_timeout(Some(Duration::from_millis(256))) {
         println!("Error setting TCP read timeout: {}", e);
       }
-      if let Err(e) = stream.set_write_timeout(Some(Duration::from_millis(1024))) {
+      if let Err(e) = stream.set_write_timeout(Some(Duration::from_millis(256))) {
         println!("Error setting TCP write timeout: {}", e);
       }
       
@@ -286,10 +286,10 @@ pub fn query_udp_server_sync(config: &Config, server: &Server, query: &Record) -
   
   match UdpSocket::bind("0.0.0.0:0") {
     Ok(socket) => {
-      if let Err(e) = socket.set_read_timeout(Some(Duration::from_millis(1024))) {
+      if let Err(e) = socket.set_read_timeout(Some(Duration::from_millis(256))) {
         println!("Error setting UDP read timeout: {}", e);
       }
-      if let Err(e) = socket.set_write_timeout(Some(Duration::from_millis(1024))) {
+      if let Err(e) = socket.set_write_timeout(Some(Duration::from_millis(256))) {
         println!("Error setting UDP write timeout: {}", e);
       }
       
@@ -309,6 +309,7 @@ pub fn query_udp_server_sync(config: &Config, server: &Server, query: &Record) -
       // We use 0xff ("break" stop code in the CBOR spec (rfc 7049))
       // as a deliminator because it is least likely to interfere with CBOR stuff.
       
+      //let start = Instant::now(); // TODO add timeout on all these queries
       let mut buff = [0; 16 * 1024];
       let mut overflow_buff = vec![]; // Unused but read-in bytes are appended here
       loop {
@@ -354,7 +355,13 @@ pub fn query_udp_server_sync(config: &Config, server: &Server, query: &Record) -
             
           }
           Err(e) => {
-            println!("Error reading from UDP: {}", e);
+            if e.kind() == std::io::ErrorKind::WouldBlock {
+              // "fatal" error; we actually probably want to handle
+              // this somehow, but for now this is a reliable server-dropped-conn
+              // signal.
+              break;
+            }
+            println!("Error reading from UDP: {} (kind={:?})", &e, &e.kind());
             break;
           }
         }
