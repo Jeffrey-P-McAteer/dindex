@@ -105,12 +105,133 @@ pub fn run_tcp_sync(config: &Config, data: &Data) {
 }
 
 pub fn run_udp_sync(config: &Config, data: &Data) {
-  println!("udp starting on 0.0.0.0:{}", config.server_port);
+  use std::net::UdpSocket;
+  use std::io::ErrorKind;
+  use std::time::Duration;
   
+  let ip_port = format!("{}:{}", config.server_ip, config.server_port);
+  println!("udp starting on {}", &ip_port);
+  
+  match UdpSocket::bind(ip_port) {
+    Ok(mut socket) => {
+      
+      if let Err(e) = socket.set_read_timeout(Some(Duration::from_millis(1024))) {
+        println!("Error setting UDP read timeout: {}", e);
+      }
+      if let Err(e) = socket.set_write_timeout(Some(Duration::from_millis(1024))) {
+        println!("Error setting UDP write timeout: {}", e);
+      }
+      
+      let mut incoming_buf = [0u8; 65536];
+      
+      while !data.exit_flag.load(Ordering::Relaxed) {
+        match socket.recv_from(&mut incoming_buf) {
+          Ok((num_bytes, src)) => {
+              let packet = incoming_buf[0..num_bytes].to_vec();
+              if config.is_debug() {
+                println!("UDP: {} bytes from {:?}", num_bytes, src);
+              }
+              handle_udp_conn(&mut socket, src, packet, config, data);
+          }
+          Err(ref err) if err.kind() != ErrorKind::WouldBlock => {
+              println!("UDP Server error: {}", err);
+              break;
+          }
+          Err(_e) => {
+              // Usually OS error 11
+              //println!("Unknown error: {}", e);
+          }
+        }
+      }
+      
+    }
+    Err(e) => {
+      println!("Error starting UDP server: {}", e);
+    }
+  }
 }
 
 pub fn run_unix_sync(config: &Config, data: &Data) {
   
+}
+
+fn handle_udp_conn(socket: &mut std::net::UdpSocket, src: std::net::SocketAddr, mut packet: Vec<u8>, config: &Config, data: &Data) {
+  use std::sync::{Arc, Mutex};
+  
+  // UDP assumes every packet is a single CBOR message which is allowed to end in 0xff
+  if packet.last().eq(&Some(&0xff)) {
+    packet.pop();
+  }
+  // Parse bytes to WireData
+  match serde_cbor::from_slice::<WireData>(&packet[..]) {
+    Err(e) => {
+      println!("Error reading WireData from TCP client: {}", e);
+      return;
+    }
+    Ok(wire_data) => {
+      if config.is_debug() {
+          println!("got connection, wire_data={:?}", wire_data);
+        }
+        match wire_data.action {
+          Action::query => {
+            let ts_socket = Arc::new(Mutex::new(socket));
+            data.search_callback(&wire_data.record.create_regex_map(), |result| {
+              let wire_data = WireData {
+                action: Action::result,
+                record: result.clone(),
+              };
+              if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
+                if let Ok(stream) = ts_socket.lock() {
+                  if let Err(e) = stream.send(&bytes) {
+                    println!("Error sending result to UDP client: {}", e);
+                    return false; // stop querying, client has likely exited
+                  }
+                  // Write packet seperation byte
+                  if let Err(e) = stream.send(&[0xff]) {
+                    println!("Error sending result to TCP client: {}", e);
+                    return false; // stop querying, client has likely exited
+                  }
+                }
+              }
+              // We can never have an amplification attack via TCP,
+              // so we do not limit the search space.
+              return true;
+            });
+            // Tell clients connection should be closed
+            let wire_data = WireData {
+              action: Action::end_of_results,
+              record: Record::empty()
+            };
+            if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
+              if let Ok(stream) = ts_socket.lock() {
+                if let Err(e) = stream.send(&bytes) {
+                  println!("Error sending result to TCP client: {}", e);
+                }
+                // Write packet seperation byte
+                if let Err(e) = stream.send(&[0xff]) {
+                  println!("Error sending result to TCP client: {}", e);
+                }
+              }
+            }
+          }
+          Action::publish => {
+            if ! wire_data.record.is_empty() {
+              data.insert(wire_data.record);
+            }
+            // For now just dump entire Data to storage whenever something is added
+            // TODO optimize etc etc
+            write_stored_records(config, &data);
+          }
+          Action::listen => {
+            std::unimplemented!()
+          }
+          unk => {
+            println!("Error: unknown action {}", unk);
+            return;
+          }
+        }
+    }
+  }
 }
 
 fn handle_tcp_conn(stream: Result<std::net::TcpStream, std::io::Error>, config: &Config, data: &Data) {
