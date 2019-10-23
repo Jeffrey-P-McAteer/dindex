@@ -182,12 +182,12 @@ fn handle_udp_conn(socket: &mut std::net::UdpSocket, src: std::net::SocketAddr, 
               };
               if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
                 if let Ok(stream) = ts_socket.lock() {
-                  if let Err(e) = stream.send(&bytes) {
+                  if let Err(e) = stream.send_to(&bytes, &src) {
                     println!("Error sending result to UDP client: {}", e);
                     return false; // stop querying, client has likely exited
                   }
                   // Write packet seperation byte
-                  if let Err(e) = stream.send(&[0xff]) {
+                  if let Err(e) = stream.send_to(&[0xff], &src) {
                     println!("Error sending result to TCP client: {}", e);
                     return false; // stop querying, client has likely exited
                   }
