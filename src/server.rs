@@ -152,7 +152,58 @@ pub fn run_udp_sync(config: &Config, data: &Data) {
 }
 
 pub fn run_unix_sync(config: &Config, data: &Data) {
+  use std::os::unix::net::{UnixListener};
+  use std::collections::VecDeque;
+  use std::path::Path;
+  use std::fs;
   
+  println!("unix listening to {}", &config.server_unix_socket);
+  
+  if Path::new(&config.server_unix_socket).exists() {
+    if let Err(e) = fs::remove_file(&config.server_unix_socket) {
+      println!("Error removing prior unix socket: {}", e);
+    }
+  }
+  
+  match UnixListener::bind(&config.server_unix_socket) {
+    Ok(socket) => {
+      thread::scope(|s| {
+        let mut handlers = VecDeque::new();
+        handlers.reserve_exact(config.server_threads_in_flight + 4);
+        
+        for stream in socket.incoming() {
+          handlers.push_back(s.spawn(|_| {
+            handle_unix_conn(stream, config, data);
+          }));
+          // Housekeeping
+          if handlers.len() > config.server_threads_in_flight {
+            let threads_to_join = (handlers.len() as f64 * config.server_threads_in_flight_fraction) as usize;
+            // Pop up to threads_to_join thread handles and join on them
+            for _ in 0..threads_to_join {
+              if let Some(h) = handlers.pop_front() {
+                if let Err(e) = h.join() {
+                  println!("Error joining Unix Socket thread: {:?}", e);
+                }
+              }
+            }
+          }
+          // Further housekeeping
+          if data.exit_flag.load(Ordering::Relaxed) {
+            println!("Unix exiting due to data.exit_flag");
+            break;
+          }
+        }
+        
+        for h in handlers {
+          h.join().unwrap();
+        }
+        
+      }).unwrap();
+    }
+    Err(e) => {
+      println!("Error starting Unix server: {}", e);
+    }
+  }
 }
 
 fn handle_udp_conn(socket: &mut std::net::UdpSocket, src: std::net::SocketAddr, mut packet: Vec<u8>, config: &Config, data: &Data) {
@@ -343,4 +394,100 @@ fn handle_tcp_conn(stream: Result<std::net::TcpStream, std::io::Error>, config: 
   }
 }
 
-
+fn handle_unix_conn(stream: Result<std::os::unix::net::UnixStream, std::io::Error>, config: &Config, data: &Data) {
+  use std::time::Duration;
+  use std::sync::{Arc, Mutex};
+  use crate::h_map;
+  
+  if let Ok(mut stream) = stream {
+    // Clients will send a WireData object and then 0xff ("break" stop code in the CBOR spec (rfc 7049))
+    let mut complete_buff: Vec<u8> = vec![];
+    let mut buff = [0; 4 * 1024];
+    while ! complete_buff.contains(&0xff) {
+      match stream.read(&mut buff) {
+        Ok(num_read) => {
+          complete_buff.extend_from_slice(&buff[0..num_read]);
+        }
+        Err(e) => {
+          println!("Error reading TCP data from client: {}", e);
+          return;
+        }
+      }
+    }
+    // Remove last 0xff byte from complete_buff
+    if complete_buff.last().eq(&Some(&0xff)) {
+      complete_buff.pop();
+    }
+    
+    // Parse bytes to WireData
+    match serde_cbor::from_slice::<WireData>(&complete_buff[..]) {
+      Err(e) => {
+        println!("Error reading WireData from TCP client: {}", e);
+        return;
+      }
+      Ok(wire_data) => {
+        if config.is_debug() {
+          println!("got connection, wire_data={:?}", wire_data);
+        }
+        match wire_data.action {
+          Action::query => {
+            let ts_stream = Arc::new(Mutex::new(stream));
+            data.search_callback(&wire_data.record.create_regex_map(), |result| {
+              let wire_data = WireData {
+                action: Action::result,
+                record: result.clone(),
+              };
+              if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
+                if let Ok(mut stream) = ts_stream.lock() {
+                  if let Err(e) = stream.write(&bytes) {
+                    println!("Error sending result to TCP client: {}", e);
+                    return false; // stop querying, client has likely exited
+                  }
+                  // Write packet seperation byte
+                  if let Err(e) = stream.write(&[0xff]) {
+                    println!("Error sending result to TCP client: {}", e);
+                    return false; // stop querying, client has likely exited
+                  }
+                }
+              }
+              // We can never have an amplification attack via TCP,
+              // so we do not limit the search space.
+              return true;
+            });
+            // Tell clients connection should be closed
+            let wire_data = WireData {
+              action: Action::end_of_results,
+              record: Record::empty()
+            };
+            if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
+              if let Ok(mut stream) = ts_stream.lock() {
+                if let Err(e) = stream.write(&bytes) {
+                  println!("Error sending result to TCP client: {}", e);
+                }
+                // Write packet seperation byte
+                if let Err(e) = stream.write(&[0xff]) {
+                  println!("Error sending result to TCP client: {}", e);
+                }
+              }
+            }
+          }
+          Action::publish => {
+            if ! wire_data.record.is_empty() {
+              data.insert(wire_data.record);
+            }
+            // For now just dump entire Data to storage whenever something is added
+            // TODO optimize etc etc
+            write_stored_records(config, &data);
+          }
+          Action::listen => {
+            std::unimplemented!()
+          }
+          unk => {
+            println!("Error: unknown action {}", unk);
+            return;
+          }
+        }
+      }
+    }
+  }
+}
