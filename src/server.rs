@@ -162,10 +162,14 @@ fn handle_udp_conn(socket: &mut std::net::UdpSocket, src: std::net::SocketAddr, 
   if packet.last().eq(&Some(&0xff)) {
     packet.pop();
   }
+  if packet.len() < 1 {
+    return; // Do nothing, likely a stray 0xff that got put in a 2nd packet
+  }
+  
   // Parse bytes to WireData
   match serde_cbor::from_slice::<WireData>(&packet[..]) {
     Err(e) => {
-      println!("Error reading WireData from TCP client: {}", e);
+      println!("Error reading WireData from UDP client: {}", e);
       return;
     }
     Ok(wire_data) => {
@@ -188,7 +192,7 @@ fn handle_udp_conn(socket: &mut std::net::UdpSocket, src: std::net::SocketAddr, 
                   }
                   // Write packet seperation byte
                   if let Err(e) = stream.send_to(&[0xff], &src) {
-                    println!("Error sending result to TCP client: {}", e);
+                    println!("Error sending result to UDP client: {}", e);
                     return false; // stop querying, client has likely exited
                   }
                 }
@@ -204,12 +208,12 @@ fn handle_udp_conn(socket: &mut std::net::UdpSocket, src: std::net::SocketAddr, 
             };
             if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
               if let Ok(stream) = ts_socket.lock() {
-                if let Err(e) = stream.send(&bytes) {
-                  println!("Error sending result to TCP client: {}", e);
+                if let Err(e) = stream.send_to(&bytes, &src) {
+                  println!("Error sending result to UDP client: {}", e);
                 }
                 // Write packet seperation byte
-                if let Err(e) = stream.send(&[0xff]) {
-                  println!("Error sending result to TCP client: {}", e);
+                if let Err(e) = stream.send_to(&[0xff], &src) {
+                  println!("Error sending result to UDP client: {}", e);
                 }
               }
             }
