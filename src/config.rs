@@ -19,6 +19,7 @@
 
 use dirs;
 use config;
+use url::{Url};
 
 use std::path::PathBuf;
 use std::collections::HashMap;
@@ -62,6 +63,7 @@ pub struct Config {
   // Servers listen on TCP and UDP on this port
   pub server_port: u16,
   pub server_ip: String,
+  pub server_unix_socket: String,
   // If more than this many threads are currently active, we will
   // block incoming connections until the oldest fraction of threads complete.
   pub server_threads_in_flight: usize,
@@ -87,10 +89,12 @@ pub struct Config {
 #[derive(Debug, Clone)]
 pub struct Server {
   pub protocol: ServerProtocol,
-  // if protocol is UNIX, this is a file path
+  // if protocol is UNIX, this is unused
   pub host: String,
   // Ignored when protocol is UNIX
   pub port: u16,
+  // Only used when protocol is UNIX
+  pub path: String,
   pub max_latency_ms: usize,
 }
 
@@ -203,6 +207,7 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
     servers: s_get_server_vec(be_verbose, &settings, "servers"),
     server_port: s_get_i64(be_verbose, &settings, "server_port", 0x1de0 /*7648*/) as u16,
     server_ip: s_get_str(be_verbose, &settings, "server_ip", "0.0.0.0"),
+    server_unix_socket: s_get_str(be_verbose, &settings, "server_unix_socket", "/tmp/dindex.sock"),
     server_threads_in_flight: s_get_i64(be_verbose, &settings, "server_threads_in_flight", 8) as usize,
     server_threads_in_flight_fraction: s_get_f64(be_verbose, &settings, "server_threads_in_flight_fraction", 0.25),
     server_datastore_uri: s_get_str(be_verbose, &settings, "server_datastore_uri", "file:///tmp/dindex_db.json"),
@@ -221,12 +226,17 @@ fn s_get_server_vec(be_verbose :bool, settings: &config::Config, array_name: &st
       for s_val in vals {
         match s_val.into_table() {
           Ok(val_map) => {
-            servers.push(Server {
-              protocol: ServerProtocol::from_str( v_get_str_of(be_verbose, &val_map, "type", "udp") ),
-              host: v_get_str_of(be_verbose, &val_map, "host", "localhost"),
-              port: v_get_i64_of(be_verbose, &val_map, "port", DINDEX_DEF_PORT as i64) as u16,
-              max_latency_ms: v_get_i64_of(be_verbose, &val_map, "max_latency_ms", 600) as usize,
-            });
+            let uri_s = v_get_str_of(be_verbose, &val_map, "uri", "unix:///tmp/dindex.sock");
+            if let Ok(uri) = Url::parse(&uri_s) {
+              
+              servers.push(Server {
+                protocol: ServerProtocol::from_str( uri.scheme() ),
+                host: uri.host().unwrap_or(url::Host::Domain("localhost")).to_string(),
+                path: uri.path().to_string(),
+                port: uri.port().unwrap_or(DINDEX_DEF_PORT)  as u16,
+                max_latency_ms: v_get_i64_of(be_verbose, &val_map, "max_latency_ms", 600) as usize,
+              });
+            }
           }
           Err(e) => {
             if be_verbose {
@@ -245,6 +255,7 @@ fn s_get_server_vec(be_verbose :bool, settings: &config::Config, array_name: &st
         protocol: ServerProtocol::TCP,
         host: "dindex.jmcateer.pw".to_string(),
         port: DINDEX_DEF_PORT,
+        path: String::new(),
         max_latency_ms: 600,
       });
     }
