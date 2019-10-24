@@ -37,6 +37,7 @@ fn server_store_retrieve() {
     protocol: dindex::config::ServerProtocol::TCP,
     host: "127.0.0.1".to_string(),
     port: port,
+    path: "/tmp/dindex.test.socket".to_string(),
     max_latency_ms: 250,
   };
   test_config.servers = vec![localhost_server];
