@@ -153,6 +153,12 @@ pub fn run_udp_sync(config: &Config, data: &Data) {
   }
 }
 
+#[cfg(not(unix))]
+pub fn run_unix_sync(config: &Config, data: &Data) {
+  println!("Warning: Cannot run_unix_sync on non-unix architecture");
+}
+
+#[cfg(unix)]
 pub fn run_unix_sync(config: &Config, data: &Data) {
   use std::os::unix::net::{UnixListener};
   use std::collections::VecDeque;
@@ -361,6 +367,7 @@ fn handle_tcp_conn(stream: Result<std::net::TcpStream, std::io::Error>, config: 
   }
 }
 
+#[cfg(unix)]
 fn handle_unix_conn(stream: Result<std::os::unix::net::UnixStream, std::io::Error>, config: &Config, data: &Data) {
   if let Ok(mut stream) = stream {
     // Clients will send a WireData object and then 0xff ("break" stop code in the CBOR spec (rfc 7049))
@@ -438,6 +445,7 @@ fn handle_unix_conn(stream: Result<std::os::unix::net::UnixStream, std::io::Erro
     }
   }
 }
+
 
 // This is a generic channel implementation so we can seperate business
 // logic from tcp/udp/unix connection details.
