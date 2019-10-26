@@ -28,6 +28,7 @@ pub mod server_data_io;
 
 pub mod client;
 pub mod http_client;
+pub mod gui_client;
 pub mod data;
 pub mod wire;
 

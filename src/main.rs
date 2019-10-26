@@ -1,4 +1,4 @@
-/**
+/*
  *  dIndex - a distributed, organic, mechanical index for everything
  *  Copyright (C) 2019  Jeffrey McAteer <jeffrey.p.mcateer@gmail.com>
  *  
@@ -17,6 +17,9 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+// When compiling in release mode, windows .exe does not open cmd.exe
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 // Required for from_args() on args::Args
 use structopt::StructOpt;
 
@@ -26,6 +29,7 @@ use dindex::record;
 use dindex::actions;
 
 use dindex::http_client;
+use dindex::gui_client;
 use dindex::server;
 use dindex::client;
 use dindex::data;
@@ -57,6 +61,9 @@ fn main() {
     }
     actions::Action::run_http_client => {
       http_client::run_sync(&conf);
+    }
+    actions::Action::run_gui_client => {
+      gui_client::run_sync(&conf);
     }
     other => {
       println!("Cannot handle action {}", other);

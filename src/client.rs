@@ -376,6 +376,13 @@ pub fn query_udp_server_sync(config: &Config, server: &Server, query: &Record) -
   return results;
 }
 
+#[cfg(not(unix))]
+pub fn query_unix_server_sync(config: &Config, server: &Server, query: &Record) -> Vec<Record> {
+  println!("Warning: Cannot query_unix_server_sync because architecture is not unix.");
+  return vec![];
+}
+
+#[cfg(unix)]
 pub fn query_unix_server_sync(config: &Config, server: &Server, query: &Record) -> Vec<Record> {
   use std::os::unix::net::UnixStream;
   
