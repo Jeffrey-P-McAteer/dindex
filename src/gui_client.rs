@@ -17,9 +17,28 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+use piston::window::WindowSettings;
+use piston::event_loop::{Events, EventSettings};
+use piston_window::{Event, Input};
+use glutin_window::GlutinWindow;
+
 use crate::config;
 
 pub fn run_sync(config: &config::Config) {
-  // TODO find a backend or library that doesn't suck
+  let settings = WindowSettings::new("dIndex", (600, 400))
+        .exit_on_esc(true);
+  let mut window: GlutinWindow = settings.build()
+        .expect("Could not create window");
+  let mut events = Events::new(EventSettings::new());
+  while let Some(e) = events.next(&mut window) {
+    match e {
+      // Event::Input(Input::Resize(rs), _option_timestamp) => {
+      //   rs.window_size
+      // }
+      unk_e => {
+        println!("unk_e={:?}", unk_e);
+      }
+    }
+  }
 }
 
