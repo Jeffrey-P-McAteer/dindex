@@ -209,7 +209,6 @@ pub fn run_unix_sync(config: &Config, data: &Data) {
 }
 
 fn handle_udp_conn(socket: &mut std::net::UdpSocket, src: std::net::SocketAddr, mut packet: Vec<u8>, config: &Config, data: &Data) {
-  use std::sync::{Arc, Mutex};
   
   // UDP assumes every packet is a single CBOR message which is allowed to end in 0xff
   if packet.last().eq(&Some(&0xff)) {
@@ -226,67 +225,51 @@ fn handle_udp_conn(socket: &mut std::net::UdpSocket, src: std::net::SocketAddr, 
       return;
     }
     Ok(wire_data) => {
-      if config.is_debug() {
-          println!("got connection, wire_data={:?}", wire_data);
-        }
-        match wire_data.action {
-          Action::query => {
-            let ts_socket = Arc::new(Mutex::new(socket));
-            data.search_callback(&wire_data.record.create_regex_map(), |result| {
-              let wire_data = WireData {
-                action: Action::result,
-                record: result.clone(),
-              };
-              if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
-                if let Ok(stream) = ts_socket.lock() {
-                  if let Err(e) = stream.send_to(&bytes, &src) {
-                    println!("Error sending result to UDP client: {}", e);
-                    return false; // stop querying, client has likely exited
-                  }
-                  // Write packet seperation byte
-                  if let Err(e) = stream.send_to(&[0xff], &src) {
-                    println!("Error sending result to UDP client: {}", e);
-                    return false; // stop querying, client has likely exited
+        
+        // Create channel to do business logic
+        let (to_business_logic, from_us) = mpsc::channel();
+        let (to_us, from_business_logic) = mpsc::channel();
+        
+        thread::scope(|s| {
+          let bt = s.spawn(|_| {
+            handle_conn(from_us, to_us, config, data);
+          });
+          
+          let client_to_business_t = s.spawn(move |_| {
+            to_business_logic.send(wire_data).unwrap();
+          });
+          
+          let ts_socket = Arc::new(Mutex::new(socket));
+          let business_to_client_t = s.spawn(move |_| {
+            loop {
+              match from_business_logic.recv() {
+                Ok(wire_data_to_client) => {
+                  if let Ok(bytes) = serde_cbor::to_vec(&wire_data_to_client) {
+                    if let Ok(stream) = ts_socket.lock() {
+                      if let Err(e) = stream.send_to(&bytes, &src) {
+                        println!("Error sending result to UDP client: {}", e);
+                        return; // stop querying, client has likely exited
+                      }
+                      // Write packet seperation byte
+                      if let Err(e) = stream.send_to(&[0xff], &src) {
+                        println!("Error sending result to UDP client: {}", e);
+                        return; // stop querying, client has likely exited
+                      }
+                    }
                   }
                 }
-              }
-              // We can never have an amplification attack via TCP,
-              // so we do not limit the search space.
-              return true;
-            });
-            // Tell clients connection should be closed
-            let wire_data = WireData {
-              action: Action::end_of_results,
-              record: Record::empty()
-            };
-            if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
-              if let Ok(stream) = ts_socket.lock() {
-                if let Err(e) = stream.send_to(&bytes, &src) {
-                  println!("Error sending result to UDP client: {}", e);
-                }
-                // Write packet seperation byte
-                if let Err(e) = stream.send_to(&[0xff], &src) {
-                  println!("Error sending result to UDP client: {}", e);
+                Err(_e) => {
+                  //println!("Error in handle_udp_conn looping business back to client: {}", e); // Always channel closed error
+                  break;
                 }
               }
             }
-          }
-          Action::publish => {
-            if ! wire_data.record.is_empty() {
-              data.insert(wire_data.record);
-            }
-            // For now just dump entire Data to storage whenever something is added
-            // TODO optimize etc etc
-            write_stored_records(config, &data);
-          }
-          Action::listen => {
-            std::unimplemented!()
-          }
-          unk => {
-            println!("Error: unknown action {}", unk);
-            return;
-          }
-        }
+          });
+          
+          bt.join().unwrap();
+          client_to_business_t.join().unwrap();
+          business_to_client_t.join().unwrap();
+        }).unwrap();
     }
   }
 }
@@ -360,8 +343,8 @@ fn handle_tcp_conn(stream: Result<std::net::TcpStream, std::io::Error>, config: 
                     }
                   }
                 }
-                Err(e) => {
-                  println!("Error in handle_tcp_conn looping business back to client: {}", e);
+                Err(_e) => {
+                  //println!("Error in handle_tcp_conn looping business back to client: {}", e); // Always channel closed error
                   break;
                 }
               }
@@ -439,8 +422,8 @@ fn handle_unix_conn(stream: Result<std::os::unix::net::UnixStream, std::io::Erro
                     }
                   }
                 }
-                Err(e) => {
-                  println!("Error in handle_unix_conn looping business back to client: {}", e);
+                Err(_e) => {
+                  //println!("Error in handle_unix_conn looping business back to client: {}", e); // Always channel closed error
                   break;
                 }
               }
