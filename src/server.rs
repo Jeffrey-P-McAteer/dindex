@@ -89,7 +89,9 @@ pub fn run_tcp_sync(config: &Config, data: &Data) {
           }
           // Further housekeeping
           if data.exit_flag.load(Ordering::Relaxed) {
-            println!("tcp exiting due to data.exit_flag");
+            if config.is_debug() {
+              println!("tcp exiting due to data.exit_flag");
+            }
             break;
           }
         }
@@ -197,7 +199,9 @@ pub fn run_unix_sync(config: &Config, data: &Data) {
           }
           // Further housekeeping
           if data.exit_flag.load(Ordering::Relaxed) {
-            println!("Unix exiting due to data.exit_flag");
+            if config.is_debug() {
+              println!("Unix exiting due to data.exit_flag");
+            }
             break;
           }
         }
