@@ -13,6 +13,16 @@ One simplification is moving from a multi-binary structure to a single-binary.
 The other is a focus on GUI components earlier in the dev process (see `http_client.rs`),
 which I expect will make testing easier.
 
+# FFI Headers
+
+FFI C headers may be generated using `cbindgen`:
+
+```
+cbindgen --config cbindgen.toml --crate dindex --output target/dindex.h
+```
+
+Shared and static libraries are generated with `cargo build` under `target/`.
+
 # dIndex (old reamde)
 
 This repo holds software which manages a _distributed index_, in the most

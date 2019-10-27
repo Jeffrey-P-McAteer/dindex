@@ -17,21 +17,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-pub mod config;
-pub mod args;
-pub mod record;
-pub mod actions;
-pub mod ext;
-
-
-pub mod server;
-pub mod server_data_io;
-
-pub mod client;
-pub mod http_client;
-pub mod data;
-pub mod wire;
-
-#[cfg(feature = "gui-client")]
-pub mod gui_client;
-
+#[no_mangle]
+pub extern fn dindex_placeholder_todo_remove(x: i32) -> bool {
+  println!("Rust got x={}", x);
+  return false;
+}
