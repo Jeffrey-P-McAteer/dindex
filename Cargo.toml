@@ -54,3 +54,6 @@ num_cpus = "1.10.1"
 
 web-view = { git = "https://github.com/Jeffrey-P-McAteer/web-view.git" }
 #web-view = "0.5.2"
+
+fork = "0.1.8"
+nix = "0.15.0"

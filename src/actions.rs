@@ -42,6 +42,7 @@ arg_enum! {
       // The remaining arguments are NOT designed to be sent over the wire,
       // but instead are used by the CLI tool.
       run_server,
+      double_fork_server,
       run_http_client,
       run_gui_client,
       

@@ -67,6 +67,8 @@ pub struct Config {
   
   pub server_max_listeners: usize,
   
+  pub server_pid_file: String,
+  
   // Servers listen on TCP and UDP on this port
   pub server_port: u16,
   pub server_ip: String,
@@ -217,6 +219,7 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
     server_listen_udp: s_get_bool(be_verbose, &settings, "server_listen_udp", true),
     server_listen_unix: s_get_bool(be_verbose, &settings, "server_listen_unix", true),
     server_max_listeners: s_get_i64(be_verbose, &settings, "server_max_listeners", 100) as usize,
+    server_pid_file: s_get_str(be_verbose, &settings, "server_pid_file", "/tmp/dindex.pid"),
     server_ip: s_get_str(be_verbose, &settings, "server_ip", "0.0.0.0"),
     server_unix_socket: s_get_str(be_verbose, &settings, "server_unix_socket", "/tmp/dindex.sock"),
     server_threads_in_flight: s_get_i64(be_verbose, &settings, "server_threads_in_flight", 8) as usize,

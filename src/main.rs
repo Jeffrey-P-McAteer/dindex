@@ -22,6 +22,8 @@
 
 // Required for from_args() on args::Args
 use structopt::StructOpt;
+use fork;
+use fork::{Fork};
 
 use dindex::config;
 use dindex::args;
@@ -55,6 +57,7 @@ fn main() {
         client::publish_sync(&conf, &rec);
       }
     }
+    
     actions::Action::listen => {
       let rec = args.get_record(&conf);
       client::listen_sync(&conf, &rec, |result| {
@@ -62,12 +65,19 @@ fn main() {
         return client::ListenAction::Continue;
       });
     }
+    
     actions::Action::run_server => {
       server::run_sync(&conf);
     }
+    
+    actions::Action::double_fork_server => {
+      double_fork_impl(&conf);
+    }
+    
     actions::Action::run_http_client => {
       http_client::run_sync(&conf);
     }
+    
     actions::Action::run_gui_client => {
       if cfg!(feature = "gui-client") {
         #[cfg(feature = "gui-client")]
@@ -79,6 +89,7 @@ fn main() {
         println!("  cargo build --release --features \"gui-client\"");
       }
     }
+    
     other => {
       println!("Cannot handle action {}", other);
     }
@@ -90,5 +101,32 @@ fn print_results(config: &config::Config, results: &Vec<record::Record>) {
   for res in results {
     // TODO custom formatting from config/ctypes/whatever
     println!("res = {:?}", res.p);
+  }
+}
+
+fn double_fork_impl(config: &config::Config) {
+  use std::fs;
+  use nix::sys::signal::kill;
+  // If a server is running kill it
+  if let Ok(pid_bytes) = fs::read(&config.server_pid_file) {
+    if let Ok(pid_s) = std::str::from_utf8(&pid_bytes) {
+      if let Ok(pid_i) = pid_s.parse::<i32>() {
+        if let Err(e) = kill(nix::unistd::Pid::from_raw(pid_i), nix::sys::signal::Signal::SIGTERM) {
+          println!("Error killing existing server: {}", e);
+        }
+      }
+    }
+  }
+  
+  match fork::daemon(false, false) {
+    Ok(Fork::Child) => {
+      server::run_sync(config);
+    }
+    Err(e) => {
+      println!("Error forking: {:?}", e);
+    }
+    _ => {
+      // We don't care about the parent, nothing happens
+    }
   }
 }

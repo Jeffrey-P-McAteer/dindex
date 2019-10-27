@@ -24,6 +24,8 @@ use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicBool;
+use std::process;
+use std::fs;
 
 use crate::config::Config;
 use crate::data::{Data, Listener};
@@ -34,6 +36,11 @@ use crate::actions::Action;
 use crate::server_data_io::*;
 
 pub fn run_sync(config: &Config) {
+  // Write PID to config.server_pid_file
+  if let Err(e) = fs::write(&config.server_pid_file, format!("{}", process::id()).as_str()) {
+    println!("Error writing to PID file: {}", e);
+  }
+  
   let mut data = Data::new(config);
   read_stored_records(config, &mut data);
   let data = data;
@@ -173,7 +180,6 @@ pub fn run_unix_sync(config: &Config, data: &Data) {
   use std::os::unix::net::{UnixListener};
   use std::collections::VecDeque;
   use std::path::Path;
-  use std::fs;
   
   println!("unix listening to {}", &config.server_unix_socket);
   
