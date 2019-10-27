@@ -1,8 +1,6 @@
 # Todo
 
 _A short list of the next things being targeted for implementation_
-
- - Add back in web-scraping utilities, incl. some kind of configurable site-watching daemon.
  
  - Implement Unix and UDP listening
 
