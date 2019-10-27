@@ -4,6 +4,15 @@ version = "0.1.0"
 authors = ["Jeffrey McAteer <jeffrey.p.mcateer@gmail.com>"]
 edition = "2018"
 
+[features]
+# To compile a binary which includes the GUI client run:
+# cargo build --release --features "gui-client"
+gui-client = []
+
+# By default we have no gui client (it's expensive to build and mostly unecessary)
+default = []
+
+
 [dependencies]
 
 config = "0.9.3"
@@ -38,5 +47,6 @@ clap = "2"
 # Helpes determine number of CPU cores
 num_cpus = "1.10.1"
 
-#web-view = "0.5.2"
+
 web-view = { git = "https://github.com/Jeffrey-P-McAteer/web-view.git" }
+#web-view = "0.5.2"

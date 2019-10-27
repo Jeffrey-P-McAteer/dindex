@@ -29,11 +29,13 @@ use dindex::record;
 use dindex::actions;
 
 use dindex::http_client;
-use dindex::gui_client;
 use dindex::server;
 use dindex::client;
 use dindex::data;
 use dindex::wire;
+
+#[cfg(feature = "gui-client")]
+use dindex::gui_client;
 
 fn main() {
   let args = args::Args::from_args();
@@ -63,7 +65,15 @@ fn main() {
       http_client::run_sync(&conf);
     }
     actions::Action::run_gui_client => {
-      gui_client::run_sync(&conf);
+      if cfg!(feature = "gui-client") {
+        #[cfg(feature = "gui-client")]
+        gui_client::run_sync(&conf);
+      }
+      else {
+        println!("This versin of dIndex was not compiled with GUI support.");
+        println!("To compile with GUI support run:");
+        println!("  cargo build --release --features \"gui-client\"");
+      }
     }
     other => {
       println!("Cannot handle action {}", other);
