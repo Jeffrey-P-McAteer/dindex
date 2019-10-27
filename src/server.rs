@@ -23,6 +23,7 @@ use std::io::prelude::*;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::AtomicBool;
 
 use crate::config::Config;
 use crate::data::{Data, Listener};
@@ -97,6 +98,7 @@ pub fn run_tcp_sync(config: &Config, data: &Data) {
           if data.exit_flag.load(Ordering::Relaxed) {
             if config.is_debug() {
               println!("tcp exiting due to data.exit_flag");
+              data.trim_all_listeners();
             }
             break;
           }
@@ -245,10 +247,12 @@ fn handle_udp_conn(socket: &mut std::net::UdpSocket, src: std::net::SocketAddr, 
         // Create channel to do business logic
         let (to_business_logic, from_us) = mpsc::channel();
         let (to_us, from_business_logic) = mpsc::channel();
+        let validity_flag = Arc::new(Mutex::new(AtomicBool::new(true)));
         
         thread::scope(|s| {
+          let handler_validity_flag_c = validity_flag.clone();
           let bt = s.spawn(|_| {
-            handle_conn(from_us, to_us, config, data);
+            handle_conn(from_us, to_us, config, data, handler_validity_flag_c);
           });
           
           let client_to_business_t = s.spawn(move |_| {
@@ -264,12 +268,12 @@ fn handle_udp_conn(socket: &mut std::net::UdpSocket, src: std::net::SocketAddr, 
                     if let Ok(stream) = ts_socket.lock() {
                       if let Err(e) = stream.send_to(&bytes, &src) {
                         println!("Error sending result to UDP client: {}", e);
-                        return; // stop querying, client has likely exited
+                        break; // stop querying, client has likely exited
                       }
                       // Write packet seperation byte
                       if let Err(e) = stream.send_to(&[0xff], &src) {
                         println!("Error sending result to UDP client: {}", e);
-                        return; // stop querying, client has likely exited
+                        break; // stop querying, client has likely exited
                       }
                     }
                   }
@@ -280,6 +284,16 @@ fn handle_udp_conn(socket: &mut std::net::UdpSocket, src: std::net::SocketAddr, 
                 }
               }
             }
+            // Any listener/future logic on this connection is now invalid
+            match validity_flag.lock() {
+              Ok(mut validity_flag) => {
+                *validity_flag.get_mut() = false;
+              }
+              Err(e) => {
+                println!("Error validity_flag.lock() = {}", e);
+              }
+            }
+            data.trim_invalid_listeners();
           });
           
           bt.join().unwrap();
@@ -330,10 +344,12 @@ fn handle_tcp_conn(stream: Result<std::net::TcpStream, std::io::Error>, config: 
         // Create channel to do business logic
         let (to_business_logic, from_us) = mpsc::channel();
         let (to_us, from_business_logic) = mpsc::channel();
+        let validity_flag = Arc::new(Mutex::new(AtomicBool::new(true)));
         
         thread::scope(|s| {
+          let handler_validity_flag_c = validity_flag.clone();
           let bt = s.spawn(|_| {
-            handle_conn(from_us, to_us, config, data);
+            handle_conn(from_us, to_us, config, data, handler_validity_flag_c);
           });
           
           let client_to_business_t = s.spawn(move |_| {
@@ -349,12 +365,12 @@ fn handle_tcp_conn(stream: Result<std::net::TcpStream, std::io::Error>, config: 
                     if let Ok(bytes) = serde_cbor::to_vec(&wire_data_to_client) {
                       if let Err(e) = stream.write(&bytes) {
                         println!("Error sending result to TCP client: {}", e);
-                        return; // stop sending, client has likely exited
+                        break; // stop sending, client has likely exited
                       }
                       // Write packet seperation byte
                       if let Err(e) = stream.write(&[0xff]) {
                         println!("Error sending result to TCP client: {}", e);
-                        return; // stop sending, client has likely exited
+                        break; // stop sending, client has likely exited
                       }
                     }
                   }
@@ -365,6 +381,16 @@ fn handle_tcp_conn(stream: Result<std::net::TcpStream, std::io::Error>, config: 
                 }
               }
             }
+            // Any listener/future logic on this connection is now invalid
+            match validity_flag.lock() {
+              Ok(mut validity_flag) => {
+                *validity_flag.get_mut() = false;
+              }
+              Err(e) => {
+                println!("Error validity_flag.lock() = {}", e);
+              }
+            }
+            data.trim_invalid_listeners();
           });
           
           bt.join().unwrap();
@@ -410,10 +436,12 @@ fn handle_unix_conn(stream: Result<std::os::unix::net::UnixStream, std::io::Erro
         // Create channel to do business logic
         let (to_business_logic, from_us) = mpsc::channel();
         let (to_us, from_business_logic) = mpsc::channel();
+        let validity_flag = Arc::new(Mutex::new(AtomicBool::new(true)));
         
         thread::scope(|s| {
+          let handler_validity_flag_c = validity_flag.clone();
           let bt = s.spawn(|_| {
-            handle_conn(from_us, to_us, config, data);
+            handle_conn(from_us, to_us, config, data, handler_validity_flag_c);
           });
           
           let client_to_business_t = s.spawn(move |_| {
@@ -429,12 +457,12 @@ fn handle_unix_conn(stream: Result<std::os::unix::net::UnixStream, std::io::Erro
                     if let Ok(bytes) = serde_cbor::to_vec(&wire_data_to_client) {
                       if let Err(e) = stream.write(&bytes) {
                         println!("Error sending result to Unix client: {}", e);
-                        return; // stop sending, client has likely exited
+                        break; // stop sending, client has likely exited
                       }
                       // Write packet seperation byte
                       if let Err(e) = stream.write(&[0xff]) {
                         println!("Error sending result to Unix client: {}", e);
-                        return; // stop sending, client has likely exited
+                        break; // stop sending, client has likely exited
                       }
                     }
                   }
@@ -445,6 +473,16 @@ fn handle_unix_conn(stream: Result<std::os::unix::net::UnixStream, std::io::Erro
                 }
               }
             }
+            // Any listener/future logic on this connection is now invalid
+            match validity_flag.lock() {
+              Ok(mut validity_flag) => {
+                *validity_flag.get_mut() = false;
+              }
+              Err(e) => {
+                println!("Error validity_flag.lock() = {}", e);
+              }
+            }
+            data.trim_invalid_listeners();
           });
           
           bt.join().unwrap();
@@ -459,7 +497,7 @@ fn handle_unix_conn(stream: Result<std::os::unix::net::UnixStream, std::io::Erro
 
 // This is a generic channel implementation so we can seperate business
 // logic from tcp/udp/unix connection details.
-fn handle_conn(from_client: mpsc::Receiver<WireData>, to_client: mpsc::Sender<WireData>, config: &Config, data: &Data) {
+fn handle_conn(from_client: mpsc::Receiver<WireData>, to_client: mpsc::Sender<WireData>, config: &Config, data: &Data, validity_flag: Arc<Mutex<AtomicBool>>) {
   match from_client.recv() {
     Err(e) => {
       println!("Error receiving in handle_conn: {}", e);
@@ -501,7 +539,8 @@ fn handle_conn(from_client: mpsc::Receiver<WireData>, to_client: mpsc::Sender<Wi
         Action::listen => {
           data.listen(Listener::new(
             &wire_data.record,
-            to_client
+            to_client,
+            validity_flag.clone()
           ));
         }
         unk => {

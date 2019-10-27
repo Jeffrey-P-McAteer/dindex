@@ -22,7 +22,7 @@ use num_cpus;
 use crossbeam_utils::thread;
 
 use std::sync::{Arc, RwLock, Mutex};
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::collections::HashMap;
 use std::sync::mpsc::{Sender};
 
@@ -38,6 +38,7 @@ pub struct Data {
   // When set to true server threads should exit (they may be blocked on IO however)
   pub exit_flag: Arc<AtomicBool>,
   pub listeners: Arc<Mutex<Vec<Listener>>>,
+  pub max_listeners: usize,
 }
 
 impl Data {
@@ -46,6 +47,7 @@ impl Data {
         record_pools: Arc::new(vec![]),
         exit_flag: Arc::new(AtomicBool::new(false)),
         listeners: Arc::new(Mutex::new(vec![])),
+        max_listeners: config.server_max_listeners,
       };
       let record_pools = Arc::get_mut(&mut data.record_pools).unwrap();
       // Create memory pools
@@ -83,10 +85,45 @@ impl Data {
     match self.listeners.lock() {
       Ok(mut listeners) => {
         listeners.push(listener);
-        // TODO drop old listeners past MAX
       }
       Err(e) => {
         println!("Error adding listener to Data: {}", e);
+      }
+    }
+  }
+  pub fn trim_invalid_listeners(&self) {
+    match self.listeners.lock() {
+      Ok(mut listeners) => {
+        // Remove disconnected listeners
+        listeners.retain(|l| {
+          if let Ok(conn_is_valid) = l.conn_is_valid.lock() {
+            if conn_is_valid.load(Ordering::SeqCst) {
+              return true;
+            }
+          }
+          return false;
+        });
+        // Remove over-capacity listeners
+        if listeners.len() > self.max_listeners {
+          let num_over = listeners.len() - self.max_listeners;
+          listeners.drain(0..num_over);
+        }
+        //println!("listeners.len() = {}", listeners.len());
+      }
+      Err(e) => {
+        println!("Error trimming listeners: {}", e);
+      }
+    }
+  }
+  pub fn trim_all_listeners(&self) {
+    match self.listeners.lock() {
+      Ok(mut listeners) => {
+        //listeners.clear();
+        listeners.retain(|_l| { false });
+        //println!("trim all listeners.len() = {}", listeners.len());
+      }
+      Err(e) => {
+        println!("Error trimming all listeners: {}", e);
       }
     }
   }
@@ -215,13 +252,15 @@ impl Data {
 pub struct Listener {
   pub query: HashMap<String, Regex>,
   pub tx: Sender<WireData>,
+  pub conn_is_valid: Arc<Mutex<AtomicBool>>,
 }
 
 impl Listener {
-  pub fn new(query: &Record, tx: Sender<WireData>) -> Listener {
+  pub fn new(query: &Record, tx: Sender<WireData>, valid_flag: Arc<Mutex<AtomicBool>>) -> Listener {
     Listener {
       query: query.create_regex_map(),
       tx: tx,
+      conn_is_valid: valid_flag
     }
   }
 }
