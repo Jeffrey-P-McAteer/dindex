@@ -24,9 +24,11 @@ use crossbeam_utils::thread;
 use std::sync::{Arc, RwLock, Mutex};
 use std::sync::atomic::AtomicBool;
 use std::collections::HashMap;
+use std::sync::mpsc::{Sender};
 
 use crate::record::Record;
 use crate::config::Config;
+use crate::wire::WireData;
 
 /**
  * This represents data the server will use
@@ -35,6 +37,7 @@ pub struct Data {
   pub record_pools: Arc<Vec<Arc<RwLock<Vec<Record>>>>>,
   // When set to true server threads should exit (they may be blocked on IO however)
   pub exit_flag: Arc<AtomicBool>,
+  pub listeners: Arc<Mutex<Vec<Listener>>>,
 }
 
 impl Data {
@@ -42,6 +45,7 @@ impl Data {
       let mut data = Data {
         record_pools: Arc::new(vec![]),
         exit_flag: Arc::new(AtomicBool::new(false)),
+        listeners: Arc::new(Mutex::new(vec![])),
       };
       let record_pools = Arc::get_mut(&mut data.record_pools).unwrap();
       // Create memory pools
@@ -55,8 +59,34 @@ impl Data {
   pub fn insert(&self, rec: Record) {
     for pool in self.record_pools.iter() {
       if let Ok(mut pool) = pool.try_write() {
-        pool.push(rec);
+        pool.push(rec.clone());
         break;
+      }
+    }
+    // We must also inform listeners
+    match self.listeners.lock() {
+      Ok(listeners) => {
+        for listener in listeners.iter() {
+          if rec.matches(&listener.query) {
+            if let Err(e) = listener.tx.send(WireData::result(rec.clone())) {
+              println!("Error sending data to listener: {}", e);
+            }
+          }
+        }
+      }
+      Err(e) => {
+        println!("Error informing listeners in Data: {}", e);
+      }
+    }
+  }
+  pub fn listen(&self, listener: Listener) {
+    match self.listeners.lock() {
+      Ok(mut listeners) => {
+        listeners.push(listener);
+        // TODO drop old listeners past MAX
+      }
+      Err(e) => {
+        println!("Error adding listener to Data: {}", e);
       }
     }
   }
@@ -179,5 +209,19 @@ impl Data {
         h.join().unwrap();
       }
     }).unwrap();
+  }
+}
+
+pub struct Listener {
+  pub query: HashMap<String, Regex>,
+  pub tx: Sender<WireData>,
+}
+
+impl Listener {
+  pub fn new(query: &Record, tx: Sender<WireData>) -> Listener {
+    Listener {
+      query: query.create_regex_map(),
+      tx: tx,
+    }
   }
 }

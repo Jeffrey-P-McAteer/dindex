@@ -30,6 +30,11 @@ use crate::record::Record;
 use crate::actions::Action;
 use crate::wire::WireData;
 
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub enum ListenAction {
+  Continue, EndListen
+}
+
 pub fn publish_sync(config: &Config, query: &Record) {
   thread::scope(|s| {
     let mut handlers = vec![];
@@ -479,7 +484,7 @@ pub fn query_unix_server_sync(config: &Config, server: &Server, query: &Record) 
   return results;
 }
 
-pub fn listen_sync<F: Fn(Record) + Send + Copy>(config: &Config, query: &Record, callback: F) {
+pub fn listen_sync<F: Fn(Record) -> ListenAction + Send + Copy>(config: &Config, query: &Record, callback: F) {
   thread::scope(|s| {
     let mut handlers = vec![];
     
@@ -496,7 +501,7 @@ pub fn listen_sync<F: Fn(Record) + Send + Copy>(config: &Config, query: &Record,
   }).unwrap();
 }
 
-pub fn listen_server_sync<F: Fn(Record)>(config: &Config, server: &Server, query: &Record, callback: F) {
+pub fn listen_server_sync<F: Fn(Record) -> ListenAction>(config: &Config, server: &Server, query: &Record, callback: F) {
   match server.protocol {
     ServerProtocol::TCP => {
       listen_tcp_server_sync(config, server, query, callback);
@@ -510,7 +515,7 @@ pub fn listen_server_sync<F: Fn(Record)>(config: &Config, server: &Server, query
   }
 }
 
-pub fn listen_tcp_server_sync<F: Fn(Record)>(_config: &Config, server: &Server, query: &Record, callback: F) {
+pub fn listen_tcp_server_sync<F: Fn(Record) -> ListenAction>(_config: &Config, server: &Server, query: &Record, callback: F) {
   use std::net::TcpStream;
   
   let wire_data = WireData {
@@ -569,7 +574,9 @@ pub fn listen_tcp_server_sync<F: Fn(Record)>(_config: &Config, server: &Server, 
                     break;
                   }
                   Action::result => {
-                    callback(wire_res.record);
+                    if callback(wire_res.record) == ListenAction::EndListen {
+                      break;
+                    }
                   }
                   unexpected => {
                     println!("Unexpected action from server, ignoring packet: {}", unexpected);

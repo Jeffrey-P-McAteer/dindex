@@ -29,3 +29,12 @@ pub struct WireData {
   pub action: Action,
   pub record: Record,
 }
+
+impl WireData {
+  pub fn result(record: Record) -> WireData {
+    WireData {
+      action: Action::result,
+      record: record,
+    }
+  }
+}

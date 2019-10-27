@@ -60,6 +60,11 @@ pub struct Config {
   // In server: federated servers to forward queries to
   pub servers: Vec<Server>,
   
+  // Boolean flags to turn on/off tcp/udp/unix listeners (all default to true)
+  pub server_listen_tcp: bool,
+  pub server_listen_udp: bool,
+  pub server_listen_unix: bool,
+  
   // Servers listen on TCP and UDP on this port
   pub server_port: u16,
   pub server_ip: String,
@@ -206,6 +211,9 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
     verbosity_level: s_get_i64(be_verbose, &settings, "verbosity_level", args.verbose as i64) as u8,
     servers: s_get_server_vec(be_verbose, &settings, "servers"),
     server_port: s_get_i64(be_verbose, &settings, "server_port", 0x1de0 /*7648*/) as u16,
+    server_listen_tcp: s_get_bool(be_verbose, &settings, "server_listen_tcp", true),
+    server_listen_udp: s_get_bool(be_verbose, &settings, "server_listen_udp", true),
+    server_listen_unix: s_get_bool(be_verbose, &settings, "server_listen_unix", true),
     server_ip: s_get_str(be_verbose, &settings, "server_ip", "0.0.0.0"),
     server_unix_socket: s_get_str(be_verbose, &settings, "server_unix_socket", "/tmp/dindex.sock"),
     server_threads_in_flight: s_get_i64(be_verbose, &settings, "server_threads_in_flight", 8) as usize,

@@ -25,7 +25,7 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 
 use crate::config::Config;
-use crate::data::Data;
+use crate::data::{Data, Listener};
 use crate::record::Record;
 use crate::wire::WireData;
 use crate::actions::Action;
@@ -40,17 +40,23 @@ pub fn run_sync(config: &Config) {
   thread::scope(|s| {
     let mut handlers = vec![];
     
-    handlers.push(s.spawn(|_| {
-      run_tcp_sync(config, &data);
-    }));
+    if config.server_listen_tcp {
+      handlers.push(s.spawn(|_| {
+        run_tcp_sync(config, &data);
+      }));
+    }
     
-    handlers.push(s.spawn(|_| {
-      run_udp_sync(config, &data);
-    }));
+    if config.server_listen_udp {
+      handlers.push(s.spawn(|_| {
+        run_udp_sync(config, &data);
+      }));
+    }
     
-    handlers.push(s.spawn(|_| {
-      run_unix_sync(config, &data);
-    }));
+    if config.server_listen_unix {
+      handlers.push(s.spawn(|_| {
+        run_unix_sync(config, &data);
+      }));
+    }
     
     for h in handlers {
       h.join().unwrap();
@@ -288,10 +294,10 @@ fn handle_tcp_conn(stream: Result<std::net::TcpStream, std::io::Error>, config: 
   use std::time::Duration;
   
   if let Ok(mut stream) = stream {
-    if let Err(e) = stream.set_read_timeout(Some(Duration::from_millis(1024))) {
+    if let Err(e) = stream.set_read_timeout(Some(Duration::from_millis(256))) {
       println!("Error setting TCP read timeout: {}", e);
     }
-    if let Err(e) = stream.set_write_timeout(Some(Duration::from_millis(1024))) {
+    if let Err(e) = stream.set_write_timeout(Some(Duration::from_millis(256))) {
       println!("Error setting TCP write timeout: {}", e);
     }
     // Clients will send a WireData object and then 0xff ("break" stop code in the CBOR spec (rfc 7049))
@@ -462,7 +468,7 @@ fn handle_conn(from_client: mpsc::Receiver<WireData>, to_client: mpsc::Sender<Wi
       if config.is_debug() {
         println!("got connection, wire_data={:?}", wire_data);
       }
-      let ts_to_client = Arc::new(Mutex::new(to_client));
+      let ts_to_client = Arc::new(Mutex::new(to_client.clone()));
       match wire_data.action {
         Action::query => {
           data.search_callback(&wire_data.record.create_regex_map(), |result| {
@@ -493,7 +499,10 @@ fn handle_conn(from_client: mpsc::Receiver<WireData>, to_client: mpsc::Sender<Wi
           write_stored_records(config, &data);
         }
         Action::listen => {
-          std::unimplemented!()
+          data.listen(Listener::new(
+            &wire_data.record,
+            to_client
+          ));
         }
         unk => {
           println!("Error: unknown action {}", unk);

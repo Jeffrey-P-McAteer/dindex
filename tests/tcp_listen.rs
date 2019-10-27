@@ -43,6 +43,9 @@ fn server_listen() {
   test_config.servers = vec![localhost_server];
   test_config.server_port = port;
   test_config.server_ip = "127.0.0.1".to_string();
+  test_config.server_listen_tcp = true;
+  test_config.server_listen_udp = false;
+  test_config.server_listen_unix = false;
   
   // Tell server not to store records outside this process's memory
   test_config.server_datastore_uri = "memory://".to_string();
@@ -73,12 +76,13 @@ fn server_listen() {
         let rec_url = rec.p.get(&"URL".to_string()).unwrap_or(&empty_s);
         assert_eq!(rec_url, "https://lipsum.com/");
         
-        // Instruct server to exit, test completed
-        exit_flag.store(true, std::sync::atomic::Ordering::Relaxed);
-        // Send it network traffic to force eval of exit_flag
-        dindex::client::query_sync(&test_config, &query);
-        
+        return dindex::client::ListenAction::EndListen;
       });
+      
+      // Instruct server to exit, test completed
+      exit_flag.store(true, std::sync::atomic::Ordering::Relaxed);
+      // Send it network traffic to force eval of exit_flag
+      dindex::client::query_sync(&test_config, &query);
       
     }));
     
@@ -103,7 +107,32 @@ fn server_listen() {
         rec
       };
       dindex::client::publish_sync(&test_config, &rec_1);
+    }));
+    
+    // If we don't get anything within 300ms the test fails
+    handlers.push(s.spawn(|_| {
+      // "wait" but break early if the exit flag is set to true (test success)
+      let mut remaining_iters = 30;
+      while remaining_iters > 0 && !exit_flag.load(std::sync::atomic::Ordering::Relaxed) {
+        std::thread::sleep(Duration::from_millis(10));
+        remaining_iters -= 1;
+      }
       
+      // If the server exit flag is false the test has not received a record and we must fail
+      if ! exit_flag.load(std::sync::atomic::Ordering::Relaxed) {
+        let query = {
+          let mut rec = dindex::record::Record::empty();
+          rec.p.insert("NAME".to_string(), "Lorem".to_string());
+          rec
+        };
+        // Instruct server to exit, test completed
+        exit_flag.store(true, std::sync::atomic::Ordering::Relaxed);
+        // Send it network traffic to force eval of exit_flag
+        dindex::client::query_sync(&test_config, &query);
+        
+        // Finally fail the test due to timeout without receiving query
+        assert!(false);
+      }
     }));
     
     for h in handlers {
