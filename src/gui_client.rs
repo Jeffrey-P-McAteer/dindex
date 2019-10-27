@@ -41,6 +41,8 @@ pub fn run_sync(config: &config::Config) {
         .invoke_handler(|_webview, _arg| Ok(()))
         .run()
         .unwrap();
+      // TODO make a better way to exit http_client::run_sync cleanly
+      std::process::exit(0);
     });
     
     h1.join().unwrap();
