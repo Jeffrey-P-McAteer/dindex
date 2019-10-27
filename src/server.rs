@@ -37,9 +37,11 @@ use crate::server_data_io::*;
 
 pub fn run_sync(config: &Config) {
   // Write PID to config.server_pid_file
-  if let Err(e) = fs::write(&config.server_pid_file, format!("{}", process::id()).as_str()) {
+  let our_pid_s = format!("{}", process::id());
+  if let Err(e) = fs::write(&config.server_pid_file, our_pid_s.as_str()) {
     println!("Error writing to PID file: {}", e);
   }
+  println!("Server PID: {}", our_pid_s);
   
   let mut data = Data::new(config);
   read_stored_records(config, &mut data);

@@ -112,7 +112,11 @@ fn double_fork_impl(config: &config::Config) {
     if let Ok(pid_s) = std::str::from_utf8(&pid_bytes) {
       if let Ok(pid_i) = pid_s.parse::<i32>() {
         if let Err(e) = kill(nix::unistd::Pid::from_raw(pid_i), nix::sys::signal::Signal::SIGTERM) {
-          println!("Error killing existing server: {}", e);
+          let msg = format!("{}", e);
+          let is_ok_error = msg.contains("No such process");
+          if ! is_ok_error {
+            println!("Error killing existing server: {}", e);
+          }
         }
       }
     }
