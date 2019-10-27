@@ -56,7 +56,11 @@ fn main() {
       }
     }
     actions::Action::listen => {
-      std::unimplemented!()
+      let rec = args.get_record(&conf);
+      client::listen_sync(&conf, &rec, |result| {
+        print_results(&conf, &vec![result]);
+        return client::ListenAction::Continue;
+      });
     }
     actions::Action::run_server => {
       server::run_sync(&conf);

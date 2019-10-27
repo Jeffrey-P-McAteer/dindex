@@ -108,7 +108,7 @@ impl Data {
           let num_over = listeners.len() - self.max_listeners;
           listeners.drain(0..num_over);
         }
-        //println!("listeners.len() = {}", listeners.len());
+        println!("listeners.len() = {}", listeners.len());
       }
       Err(e) => {
         println!("Error trimming listeners: {}", e);

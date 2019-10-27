@@ -595,9 +595,10 @@ pub fn listen_tcp_server_sync<F: Fn(Record) -> ListenAction>(_config: &Config, s
             }
             
           }
-          Err(e) => {
-            println!("Error reading from TCP: {}", e);
-            break;
+          Err(_e) => {
+            // This is usually a timeout and we don't disconnect when listening
+            //println!("Error reading from TCP: {}", e);
+            //break;
           }
         }
       }
