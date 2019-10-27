@@ -29,12 +29,15 @@ use dindex::config;
 use dindex::args;
 use dindex::record;
 use dindex::actions;
+use dindex::actions::Action;
 
 use dindex::http_client;
 use dindex::server;
 use dindex::client;
 use dindex::data;
 use dindex::wire;
+
+use dindex::web_scan;
 
 #[cfg(feature = "gui-client")]
 use dindex::gui_client;
@@ -44,11 +47,11 @@ fn main() {
   let conf = config::read_config(&args);
   
   match args.action {
-    actions::Action::query => {
+    Action::query => {
       let res = client::query_sync(&conf, &args.get_record(&conf));
       print_results(&conf, &res);
     }
-    actions::Action::publish => {
+    Action::publish => {
       let rec = args.get_record(&conf);
       if rec.is_empty() {
         println!("Error: refusing to publish empty record!");
@@ -58,7 +61,7 @@ fn main() {
       }
     }
     
-    actions::Action::listen => {
+    Action::listen => {
       let rec = args.get_record(&conf);
       client::listen_sync(&conf, &rec, |result| {
         print_results(&conf, &vec![result]);
@@ -66,19 +69,19 @@ fn main() {
       });
     }
     
-    actions::Action::run_server => {
+    Action::run_server => {
       server::run_sync(&conf);
     }
     
-    actions::Action::double_fork_server => {
+    Action::double_fork_server => {
       double_fork_impl(&conf);
     }
     
-    actions::Action::run_http_client => {
+    Action::run_http_client => {
       http_client::run_sync(&conf);
     }
     
-    actions::Action::run_gui_client => {
+    Action::run_gui_client => {
       if cfg!(feature = "gui-client") {
         #[cfg(feature = "gui-client")]
         gui_client::run_sync(&conf);
@@ -88,6 +91,14 @@ fn main() {
         println!("To compile with GUI support run:");
         println!("  cargo build --release --features \"gui-client\"");
       }
+    }
+    
+    Action::run_web_scan => {
+      let urls = args.rec_args.clone();
+      web_scan::scan_urls(&conf, &args, urls, |rec| {
+        // TODO we can eval some lua to let users filter public web endpoints
+        client::publish_sync(&conf, &rec);
+      });
     }
     
     other => {

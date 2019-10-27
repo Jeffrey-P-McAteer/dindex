@@ -28,21 +28,6 @@ use serde_json;
 use crate::config;
 use crate::record;
 
-#[macro_use]
-#[macro_export]
-macro_rules! h_map(
-    { $($key:expr => $value:expr),+ } => {
-        {
-            let mut m = ::std::collections::HashMap::new();
-            $(
-                m.insert($key, $value);
-            )+
-            m
-        }
-     };
-);
-
-
 pub fn run_sync(config: &config::Config) {
   thread::scope(|s| {
     let h1 = s.spawn(move |_| {

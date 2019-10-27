@@ -45,6 +45,7 @@ arg_enum! {
       double_fork_server,
       run_http_client,
       run_gui_client,
+      run_web_scan,
       
       no_action // This is only used for testing and indicates lack of any action to be taken
   }

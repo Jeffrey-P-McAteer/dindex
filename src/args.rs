@@ -37,6 +37,10 @@ pub struct Args {
   #[structopt(long = "config")]
   pub config_file: Option<String>,
   
+  /// Specify the max depth to scan each url when invoking run_web_scan
+  #[structopt(long = "max-depth", default_value = "12")]
+  pub max_web_scan_depth: usize,
+  
   /// Verbose mode (-v, -vv, -vvv, etc.)
   #[structopt(short = "v", long = "verbose", parse(from_occurrences))]
   pub verbose: u8,
@@ -63,6 +67,7 @@ impl Args {
   pub fn empty() -> Args {
     Args {
       config_file: None,
+      max_web_scan_depth: 12,
       verbose: 0,
       action: Action::no_action,
       signed: false,

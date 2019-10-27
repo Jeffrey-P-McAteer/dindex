@@ -23,7 +23,6 @@ pub mod record;
 pub mod actions;
 pub mod ext;
 
-
 pub mod server;
 pub mod server_data_io;
 
@@ -32,6 +31,24 @@ pub mod http_client;
 pub mod data;
 pub mod wire;
 
+pub mod web_scan;
+
 #[cfg(feature = "gui-client")]
 pub mod gui_client;
+
+
+
+#[macro_use]
+#[macro_export]
+macro_rules! h_map(
+    { $($key:expr => $value:expr),+ } => {
+        {
+            let mut m = ::std::collections::HashMap::new();
+            $(
+                m.insert($key, $value);
+            )+
+            m
+        }
+     };
+);
 
