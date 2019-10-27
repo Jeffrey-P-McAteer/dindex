@@ -38,7 +38,5 @@ clap = "2"
 # Helpes determine number of CPU cores
 num_cpus = "1.10.1"
 
-# Non-sucky GUI?
-piston = "*"
-pistoncore-glutin_window = "*"
-piston_window = "*"
+web-view = "0.5.2"
+
