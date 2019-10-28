@@ -18,6 +18,7 @@
  */
 
 use crossbeam_utils::thread;
+use ws;
 
 use std::io::prelude::*;
 use std::sync::atomic::Ordering;
@@ -65,6 +66,12 @@ pub fn run_sync(config: &Config) {
     if config.server_listen_unix {
       handlers.push(s.spawn(|_| {
         run_unix_sync(config, &data);
+      }));
+    }
+    
+    if config.server_listen_websocket {
+      handlers.push(s.spawn(|_| {
+        run_websocket_sync(config, &data);
       }));
     }
     
@@ -509,6 +516,65 @@ fn handle_unix_conn(stream: Result<std::os::unix::net::UnixStream, std::io::Erro
 }
 
 
+pub fn run_websocket_sync(config: &Config, data: &Data) {
+  use std::collections::VecDeque;
+  
+  let ip_port = format!("{}:{}", config.server_ip, config.server_websocket_port);
+  println!("websocket starting on {}", &ip_port); 
+  
+  thread::scope(|s| {
+      let mut handlers = VecDeque::new();
+      handlers.reserve_exact(config.server_threads_in_flight + 4);
+      
+      ws::listen(&ip_port, |out: ws::Sender| {
+        
+        let (tx, rx) = mpsc::channel::<WireData>();
+          
+        let out2 = out.clone();
+        handlers.push_back(s.spawn(|_| {
+          handle_websocket_conn(out2, rx, config, data);
+        }));
+        
+        // This closure runs every time a message comes in + we push it to the channel that
+        // handle_websocket_conn listens to
+        move |msg: ws::Message| {
+            // msg contains raw typed in search query
+            if let ws::Message::Text(msg) = msg {
+              
+              match serde_json::from_str::<WireData>(&msg) {
+                Ok(wire_data) => {
+                  if let Err(e) = tx.send(wire_data) {
+                    println!("Error sending wire data to websocket handler: {}", e);
+                  }
+                }
+                Err(e) => {
+                  println!("Error parsing websocket wire data: {}", e);
+                  if let Err(e) = out.send(format!("Error parsing WireData: {}", e)) {
+                    println!("Error telling client about error: {}", e);
+                  }
+                }
+              };
+              
+              out.close(ws::CloseCode::Normal)
+            }
+            else {
+              out.send("Error: cannot process non-text data.")
+            }
+        }
+    }).unwrap();
+    
+    for h in handlers {
+      h.join().unwrap();
+    }
+    
+  }).unwrap();
+}
+
+fn handle_websocket_conn(to_client: ws::Sender, from_client: mpsc::Receiver<WireData>, config: &Config, data: &Data) {
+  
+}
+
+
 // This is a generic channel implementation so we can seperate business
 // logic from tcp/udp/unix connection details.
 fn handle_conn(from_client: mpsc::Receiver<WireData>, to_client: mpsc::Sender<WireData>, config: &Config, data: &Data, validity_flag: Arc<Mutex<AtomicBool>>) {
@@ -567,3 +633,4 @@ fn handle_conn(from_client: mpsc::Receiver<WireData>, to_client: mpsc::Sender<Wi
     }
   }
 }
+

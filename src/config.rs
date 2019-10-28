@@ -26,7 +26,10 @@ use std::collections::HashMap;
 
 use crate::args;
 
+// Used for TCP and UDP listeners
 pub const DINDEX_DEF_PORT: u16 = 0x1de0;
+// Used for websocket listeners
+pub const DINDEX_DEF_WEBSOCKET_PORT: u16 = 0x1de1;
 
 /**
  * These are all the possible config parameters - client config
@@ -68,6 +71,7 @@ pub struct Config {
   pub server_listen_tcp: bool,
   pub server_listen_udp: bool,
   pub server_listen_unix: bool,
+  pub server_listen_websocket: bool,
   
   pub server_max_listeners: usize,
   
@@ -75,6 +79,7 @@ pub struct Config {
   
   // Servers listen on TCP and UDP on this port
   pub server_port: u16,
+  pub server_websocket_port: u16,
   pub server_ip: String,
   pub server_unix_socket: String,
   // If more than this many threads are currently active, we will
@@ -230,10 +235,12 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
     client_use_sig: s_get_bool(be_verbose, &settings, "client_use_sig", false),
     verbosity_level: s_get_i64(be_verbose, &settings, "verbosity_level", args.verbose as i64) as u8,
     servers: s_get_server_vec(be_verbose, &settings, "servers"),
-    server_port: s_get_i64(be_verbose, &settings, "server_port", 0x1de0 /*7648*/) as u16,
+    server_port: s_get_i64(be_verbose, &settings, "server_port", DINDEX_DEF_PORT as i64) as u16,
+    server_websocket_port: s_get_i64(be_verbose, &settings, "server_websocket_port", DINDEX_DEF_WEBSOCKET_PORT as i64) as u16,
     server_listen_tcp: s_get_bool(be_verbose, &settings, "server_listen_tcp", true),
     server_listen_udp: s_get_bool(be_verbose, &settings, "server_listen_udp", true),
     server_listen_unix: s_get_bool(be_verbose, &settings, "server_listen_unix", true),
+    server_listen_websocket: s_get_bool(be_verbose, &settings, "server_listen_websocket", true),
     server_max_listeners: s_get_i64(be_verbose, &settings, "server_max_listeners", 100) as usize,
     server_pid_file: s_get_str(be_verbose, &settings, "server_pid_file", "/tmp/dindex.pid"),
     server_ip: s_get_str(be_verbose, &settings, "server_ip", "0.0.0.0"),
@@ -261,11 +268,21 @@ fn s_get_server_vec(be_verbose :bool, settings: &config::Config, array_name: &st
             let uri_s = v_get_str_of(be_verbose, &val_map, "uri", "unix:///tmp/dindex.sock");
             if let Ok(uri) = Url::parse(&uri_s) {
               
+              // Some defaults are protocol-dependent
+              let protocol = ServerProtocol::from_str( uri.scheme() );
+              let def_port;
+              if protocol == ServerProtocol::WEBSOCKET {
+                def_port = DINDEX_DEF_WEBSOCKET_PORT;
+              }
+              else {
+                def_port = DINDEX_DEF_PORT;
+              }
+              
               servers.push(Server {
-                protocol: ServerProtocol::from_str( uri.scheme() ),
+                protocol: protocol,
                 host: uri.host().unwrap_or(url::Host::Domain("localhost")).to_string(),
                 path: uri.path().to_string(),
-                port: uri.port().unwrap_or(DINDEX_DEF_PORT)  as u16,
+                port: uri.port().unwrap_or(def_port) as u16,
                 report_connect_errors: report_connect_errors,
                 max_latency_ms: v_get_i64_of(be_verbose, &val_map, "max_latency_ms", 600) as usize,
               });

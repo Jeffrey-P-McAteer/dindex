@@ -194,7 +194,7 @@ pub fn query_server_sync(config: &Config, server: &Server, query: &Record) -> Ve
       return query_unix_server_sync(config, server, query);
     }
     ServerProtocol::WEBSOCKET => {
-      std::unimplemented!()
+      return query_websocket_server_sync(config, server, query);
     }
   }
 }
@@ -508,6 +508,10 @@ pub fn query_unix_server_sync(config: &Config, server: &Server, query: &Record) 
   }
   
   return results;
+}
+
+pub fn query_websocket_server_sync(config: &Config, server: &Server, query: &Record) -> Vec<Record> {
+  std::unimplemented!()
 }
 
 pub fn listen_sync<F: Fn(Record) -> ListenAction + Send + Copy>(config: &Config, query: &Record, callback: F) {
