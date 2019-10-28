@@ -32,6 +32,11 @@ use std::collections::HashMap;
 use crate::config::Config;
 use crate::record::Record;
 
+// Reserved key, holds base64 public key
+const signing_pub_key_key: &str = "SIGNING:public-key";
+// Reserved key, holds base64 signature of non_sig_bytes() for a record
+const signing_non_sig_bytes_key: &str = "SIGNING:non-sig-bytes";
+
 pub fn gen_identity(output_file: &str) {
   let rsa = Rsa::generate(2048).unwrap();
   match rsa.private_key_to_pem() {
@@ -135,7 +140,8 @@ fn sign_rec(keypair: &PKey<Private>, rec: &mut Record) {
     signatures.insert(sign_key, sign_val);
   }
   
-  signatures.insert("public-key".to_string(), base64::encode(&keypair.public_key_to_pem().unwrap()));
+  signatures.insert(signing_pub_key_key.to_string(), base64::encode(&keypair.public_key_to_pem().unwrap()));
+  signatures.insert(signing_non_sig_bytes_key.to_string(), sign_nonsig_bytes(keypair, rec));
   
   for (sign_key, sign_val) in signatures {
     //println!("Inserting {}, {}", &sign_key, &sign_val);
@@ -157,6 +163,16 @@ fn sign_single(keypair: &PKey<Private>, key: String, val: String) -> (String, St
   );
 }
 
+fn sign_nonsig_bytes(keypair: &PKey<Private>, rec: &Record) -> String {
+  let mut signer = Signer::new(MessageDigest::sha256(), &keypair).unwrap();
+  
+  // Signatures are done on the key concatinated with value, in that order (non-sig key value)
+  signer.update(&non_sig_bytes(rec)).unwrap();
+  let signature = signer.sign_to_vec().unwrap();
+  
+  return base64::encode(&signature);
+}
+
 fn read_file(path: &Path) -> Result<Vec<u8>, std::io::Error> {
     use std::io::Read;
     let mut file = std::fs::File::open(path)?;
@@ -166,18 +182,21 @@ fn read_file(path: &Path) -> Result<Vec<u8>, std::io::Error> {
 }
 
 pub fn is_valid_sig(rec: &Record) -> bool {
-  if ! rec.p.contains_key("public-key") {
+  if ! rec.p.contains_key(signing_pub_key_key) {
+    return false;
+  }
+  if ! rec.p.contains_key(signing_non_sig_bytes_key) {
     return false;
   }
   let empty_str = String::new();
-  let pub_key_base64 = rec.p.get("public-key").unwrap_or(&empty_str);
+  let pub_key_base64 = rec.p.get(signing_pub_key_key).unwrap_or(&empty_str);
   let pub_key_bytes = base64::decode(pub_key_base64).unwrap_or(pub_key_base64.as_bytes().to_vec());
   match try_parse_rsa_pub(&pub_key_bytes) {
     Ok(rsa_pub_key) => {
       match PKey::from_rsa(rsa_pub_key) {
         Ok(pkey) => {
           for (key, val) in &rec.p {
-            if key == "public-key" {
+            if key == signing_pub_key_key {
               continue;
             }
             if key.ends_with("-sig") {
@@ -189,7 +208,13 @@ pub fn is_valid_sig(rec: &Record) -> bool {
               }
             }
           }
-          // Every check passed, every "-sig" field is signed with the key from "public-key"
+          // Now check entire message non "-sig" field signature
+          let base64_unsigned_sig = rec.p.get(signing_non_sig_bytes_key).unwrap_or(&empty_str);
+          if ! check_nonsig_bytes(&pkey, rec, base64_unsigned_sig) {
+            return false;
+          }
+          
+          // Every check passed, every "-sig" field is signed with the key from signing_pub_key_key
           // NB: what about fields without a "-sig" pair?
           return true;
         }
@@ -214,6 +239,28 @@ pub fn check_single_sig(pub_key: &PKey<Public>, value_key: &str, value: &str, si
   return verifier.verify(&sig).unwrap();
 }
 
+pub fn check_nonsig_bytes(pub_key: &PKey<Public>, rec: &Record, sig_base64: &str) -> bool {
+  let mut verifier = Verifier::new(MessageDigest::sha256(), &pub_key).unwrap();
+  verifier.update(&non_sig_bytes(rec)).unwrap();
+  let sig = base64::decode(sig_base64).unwrap_or(vec![]);
+  return verifier.verify(&sig).unwrap();
+}
+
+// Parses out all non T-sig and public-key strings, concatinating their
+// byte representations. Used to create an HMAC of sorts to prevent
+// an attack where signed key-value pairs can be spliced together in different Records.
+// Bytes are sorted smallest -> largest to prevent having to deal with ordering of key-value pairs.
+pub fn non_sig_bytes(rec: &Record) -> Vec<u8> {
+  let mut bytes = vec![];
+  for (key, val) in &rec.p {
+    if !key_is_used_in_signing(key) {
+      bytes.extend(val.as_bytes());
+    }
+  }
+  bytes.sort();
+  return bytes;
+}
+
 pub fn is_auth_by_server(rec: &Record, config: &Config) -> bool {
   use std::io::BufReader;
   use std::io::BufRead;
@@ -224,7 +271,7 @@ pub fn is_auth_by_server(rec: &Record, config: &Config) -> bool {
   }
   
   let new_s = String::new();
-  let rec_pub_key_s = rec.p.get("public-key").unwrap_or(&new_s);
+  let rec_pub_key_s = rec.p.get(signing_pub_key_key).unwrap_or(&new_s);
   
   if rec_pub_key_s.len() < 1 {
     return false; // no pub key given
@@ -250,5 +297,11 @@ pub fn is_auth_by_server(rec: &Record, config: &Config) -> bool {
   }
   // Some error or nothing in auth file matches, fail safe
   return false;
+}
+
+// As reserved keys pile up, this method tracks reserved
+// key patterns which are not considered user data when signing.
+pub fn key_is_used_in_signing(key: &str) -> bool {
+  key == signing_pub_key_key || key == signing_non_sig_bytes_key || key.ends_with("-sig")
 }
 
