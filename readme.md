@@ -29,6 +29,11 @@ Shared and static libraries are generated with `cargo build` under `target/`.
 (cd ffi-c ; make bin/example01 && ./bin/example01 )
 ```
 
+# Dependencies
+
+`libssl` version 1.1+
+
+
 # dIndex (old readme)
 
 This repo holds software which manages a _distributed index_, in the most
