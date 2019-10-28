@@ -425,20 +425,20 @@ pub fn query_unix_server_sync(config: &Config, server: &Server, query: &Record) 
   match UnixStream::connect(&server.path) {
     Ok(mut stream) => {
       if let Err(e) = stream.set_read_timeout(Some(Duration::from_millis(256))) {
-        println!("Error setting TCP read timeout: {}", e);
+        println!("Error setting Unix read timeout: {}", e);
       }
       if let Err(e) = stream.set_write_timeout(Some(Duration::from_millis(256))) {
-        println!("Error setting TCP write timeout: {}", e);
+        println!("Error setting Unix write timeout: {}", e);
       }
       
       if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
         if let Err(e) = stream.write(&bytes) {
-          println!("Error sending WireData to server in query_tcp_server_sync: {}", e);
+          println!("Error sending WireData to server in query_unix_server_sync: {}", e);
           return vec![];
         }
         // Write the terminal 0xff byte
         if let Err(e) = stream.write(&[0xff]) {
-          println!("Error sending WireData to server in query_tcp_server_sync: {}", e);
+          println!("Error sending WireData to server in query_unix_server_sync: {}", e);
           return vec![];
         }
       }
@@ -492,7 +492,7 @@ pub fn query_unix_server_sync(config: &Config, server: &Server, query: &Record) 
             
           }
           Err(e) => {
-            println!("Error reading from TCP: {}", e);
+            println!("Error reading from Unix: {}", e);
             break;
           }
         }
@@ -501,7 +501,7 @@ pub fn query_unix_server_sync(config: &Config, server: &Server, query: &Record) 
     }
     Err(e) => {
       if server.report_connect_errors {
-        println!("Error in query_tcp_server_sync: {}", e);
+        println!("Error in query_unix_server_sync: {}", e);
       }
       return vec![];
     }
