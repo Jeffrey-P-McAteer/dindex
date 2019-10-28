@@ -22,6 +22,8 @@ use regex::Regex;
 
 use std::collections::HashMap;
 
+use crate::signing;
+
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct Record {
   pub p: HashMap<String, String>,
@@ -35,6 +37,14 @@ impl Record {
   }
   pub fn is_empty(&self) -> bool {
     self.p.is_empty()
+  }
+  pub fn is_signed(&self) -> bool {
+    signing::is_valid_sig(self)
+  }
+  pub fn pub_key(&self) -> String {
+    let empty_str = String::new();
+    let pub_key_val = self.p.get("public-key").unwrap_or(&empty_str);
+    return format!("{}", pub_key_val);
   }
   pub fn matches(&self, query: &HashMap<String, Regex>) -> bool {
     let mut common_keys = vec![];

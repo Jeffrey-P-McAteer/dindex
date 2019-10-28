@@ -401,9 +401,15 @@ fn handle_tcp_conn(stream: Result<std::net::TcpStream, std::io::Error>, config: 
             data.trim_invalid_listeners();
           });
           
-          bt.join().unwrap();
-          client_to_business_t.join().unwrap();
-          business_to_client_t.join().unwrap();
+          if let Err(e) = bt.join() {
+            println!("Error joining thread: {:?}", e);
+          }
+          if let Err(e) = client_to_business_t.join() {
+            println!("Error joining thread: {:?}", e);
+          }
+          if let Err(e) = business_to_client_t.join() {
+            println!("Error joining thread: {:?}", e);
+          }
         }).unwrap();
       }
     }
@@ -513,6 +519,7 @@ fn handle_conn(from_client: mpsc::Receiver<WireData>, to_client: mpsc::Sender<Wi
     Ok(wire_data) => {
       if config.is_debug() {
         println!("got connection, wire_data={:?}", wire_data);
+        println!("record.is_signed() = {}", wire_data.record.is_signed());
       }
       let ts_to_client = Arc::new(Mutex::new(to_client.clone()));
       match wire_data.action {
