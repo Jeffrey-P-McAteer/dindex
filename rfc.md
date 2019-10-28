@@ -41,4 +41,16 @@ records, such as when clients make a query and there are multiple results.
 this _should_ never cause a problem with the COBR objects; RFC 7049 defines 0xff as
 a "break" stop code, so the meaning should match semantically.
 
+# Record Signing
+
+A signed record differs from a regular record in that:
+
+ - it contains a key "public-key" with a value that is a base64 string of an RSA public key (TODO doc format details)
+ - for every key ending in "-sig" there is a corresponding key without "-sig", and the "-sig" value is a base64 encoded RSA_PKCS1_SHA256 signature of the non-sig key's value.
+
+The following keys are therefore reserved for use signing records:
+
+ - `public-key`
+ - `T-sig` for all `T`
+
 
