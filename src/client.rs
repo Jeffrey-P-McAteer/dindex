@@ -35,6 +35,20 @@ pub enum ListenAction {
   Continue, EndListen
 }
 
+impl ListenAction {
+  pub fn parse(s: &str) -> ListenAction {
+    if s == "Continue" {
+      ListenAction::Continue
+    }
+    else if s == "EndListen" {
+      ListenAction::EndListen
+    }
+    else {
+      ListenAction::EndListen
+    }
+  }
+}
+
 pub fn publish_sync(config: &Config, query: &Record) {
   thread::scope(|s| {
     let mut handlers = vec![];

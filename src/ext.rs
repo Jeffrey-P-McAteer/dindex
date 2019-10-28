@@ -151,3 +151,27 @@ pub extern fn dindex_client_query_sync(config: *mut Config, rec_ptr: *mut Record
     }
   }
 }
+
+// Return should map to a ListenAction
+type ListenCallback = extern "C" fn(*mut Record) -> *const c_char;
+
+#[no_mangle]
+pub extern fn dindex_client_listen_sync(config: *mut Config, rec_ptr: *mut Record, callback: ListenCallback) {
+  if config.is_null() || rec_ptr.is_null() {
+    return;
+  }
+  else {
+    unsafe {
+      client::listen_sync(&(*config), &(*rec_ptr), |rec| {
+        let cstr_action = callback(Box::into_raw(Box::new(rec)));
+        if ! cstr_action.is_null() {
+          let str_action = CStr::from_ptr(cstr_action).to_string_lossy();
+          return client::ListenAction::parse(&str_action);
+        }
+        else {
+          return client::ListenAction::EndListen;
+        }
+      });
+    }
+  }
+}
