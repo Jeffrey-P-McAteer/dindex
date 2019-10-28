@@ -36,6 +36,8 @@ use crate::record::Record;
 const signing_pub_key_key: &str = "SIGNING:public-key";
 // Reserved key, holds base64 signature of non_sig_bytes() for a record
 const signing_non_sig_bytes_key: &str = "SIGNING:non-sig-bytes";
+// Reserved for all keys that match the pattern T-sig for all T
+const signing_sig_suffix: &str = "-sig";
 
 pub fn gen_identity(output_file: &str) {
   let rsa = Rsa::generate(2048).unwrap();
@@ -199,7 +201,7 @@ pub fn is_valid_sig(rec: &Record) -> bool {
             if key == signing_pub_key_key {
               continue;
             }
-            if key.ends_with("-sig") {
+            if key.ends_with(signing_sig_suffix) {
               let unsig_key = &key[0..key.len()-4];
               //println!("key={}  unsig_key={}", &key, &unsig_key);
               let unsigned_val = rec.p.get(unsig_key).unwrap_or(&empty_str);
@@ -208,14 +210,14 @@ pub fn is_valid_sig(rec: &Record) -> bool {
               }
             }
           }
-          // Now check entire message non "-sig" field signature
+          // Now check entire message non signing_sig_suffix field signature
           let base64_unsigned_sig = rec.p.get(signing_non_sig_bytes_key).unwrap_or(&empty_str);
           if ! check_nonsig_bytes(&pkey, rec, base64_unsigned_sig) {
             return false;
           }
           
-          // Every check passed, every "-sig" field is signed with the key from signing_pub_key_key
-          // NB: what about fields without a "-sig" pair?
+          // Every check passed, every signing_sig_suffix field is signed with the key from signing_pub_key_key
+          // NB: what about fields without a signing_sig_suffix pair?
           return true;
         }
         Err(e) => {
@@ -302,6 +304,6 @@ pub fn is_auth_by_server(rec: &Record, config: &Config) -> bool {
 // As reserved keys pile up, this method tracks reserved
 // key patterns which are not considered user data when signing.
 pub fn key_is_used_in_signing(key: &str) -> bool {
-  key == signing_pub_key_key || key == signing_non_sig_bytes_key || key.ends_with("-sig")
+  key == signing_pub_key_key || key == signing_non_sig_bytes_key || key.ends_with(signing_sig_suffix)
 }
 
