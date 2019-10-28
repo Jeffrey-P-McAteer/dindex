@@ -282,7 +282,9 @@ pub fn query_tcp_server_sync(config: &Config, server: &Server, query: &Record) -
       
     }
     Err(e) => {
-      println!("Error in query_tcp_server_sync: {}", e);
+      if server.report_connect_errors {
+        println!("Error in query_tcp_server_sync: {}", e);
+      }
       return vec![];
     }
   }
@@ -387,7 +389,9 @@ pub fn query_udp_server_sync(config: &Config, server: &Server, query: &Record) -
       
     }
     Err(e) => {
-      println!("Error in query_udp_server_sync: {}", e);
+      if server.report_connect_errors {
+        println!("Error in query_udp_server_sync: {}", e);
+      }
       return vec![];
     }
   }
@@ -490,7 +494,9 @@ pub fn query_unix_server_sync(config: &Config, server: &Server, query: &Record) 
       
     }
     Err(e) => {
-      println!("Error in query_tcp_server_sync: {}", e);
+      if server.report_connect_errors {
+        println!("Error in query_tcp_server_sync: {}", e);
+      }
       return vec![];
     }
   }

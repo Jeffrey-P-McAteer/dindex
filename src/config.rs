@@ -110,6 +110,8 @@ pub struct Server {
   pub port: u16,
   // Only used when protocol is UNIX
   pub path: String,
+  // Defaults to true, useful to silence errors when your config has a server that is usually down
+  pub report_connect_errors: bool,
   pub max_latency_ms: usize,
 }
 
@@ -252,6 +254,7 @@ fn s_get_server_vec(be_verbose :bool, settings: &config::Config, array_name: &st
       for s_val in vals {
         match s_val.into_table() {
           Ok(val_map) => {
+            let report_connect_errors = v_get_bool_of(be_verbose, &val_map, "report_connect_errors", true);
             let uri_s = v_get_str_of(be_verbose, &val_map, "uri", "unix:///tmp/dindex.sock");
             if let Ok(uri) = Url::parse(&uri_s) {
               
@@ -260,6 +263,7 @@ fn s_get_server_vec(be_verbose :bool, settings: &config::Config, array_name: &st
                 host: uri.host().unwrap_or(url::Host::Domain("localhost")).to_string(),
                 path: uri.path().to_string(),
                 port: uri.port().unwrap_or(DINDEX_DEF_PORT)  as u16,
+                report_connect_errors: report_connect_errors,
                 max_latency_ms: v_get_i64_of(be_verbose, &val_map, "max_latency_ms", 600) as usize,
               });
             }
@@ -282,6 +286,7 @@ fn s_get_server_vec(be_verbose :bool, settings: &config::Config, array_name: &st
         host: "dindex.jmcateer.pw".to_string(),
         port: DINDEX_DEF_PORT,
         path: String::new(),
+        report_connect_errors: true,
         max_latency_ms: 600,
       });
     }
@@ -421,6 +426,25 @@ fn v_get_str_of(be_verbose: bool, src: &HashMap<String, config::Value>, key: &st
     }
     None => {
       return default.to_string();
+    }
+  }
+}
+
+fn v_get_bool_of(be_verbose: bool, src: &HashMap<String, config::Value>, key: &str, default: bool) -> bool {
+  match src.get(key) {
+    Some(conf_val) => {
+      match conf_val.clone().into_bool() { // TODO can we design-out this clone()?
+        Ok(bool_val) => { return bool_val; }
+        Err(e) => {
+          if be_verbose {
+            println!("{}", e);
+          }
+          return default;
+        }
+      }
+    }
+    None => {
+      return default;
     }
   }
 }
