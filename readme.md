@@ -18,12 +18,18 @@ which I expect will make testing easier.
 FFI C headers may be generated using `cbindgen`:
 
 ```
-cbindgen --config cbindgen.toml --crate dindex --output target/dindex.h
+cbindgen --config cbindgen.toml --crate dindex --output target/ffi-include/dindex.h
 ```
 
 Shared and static libraries are generated with `cargo build` under `target/`.
 
-# dIndex (old reamde)
+# FFI Examples
+
+```
+(cd ffi-c ; make bin/example01 && ./bin/example01 )
+```
+
+# dIndex (old readme)
 
 This repo holds software which manages a _distributed index_, in the most
 abstract meaning of the term. The index doesn't need to hold websites; it can hold

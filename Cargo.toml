@@ -64,3 +64,7 @@ web-view = { git = "https://github.com/Jeffrey-P-McAteer/web-view.git" }
 
 fork = "0.1.8"
 nix = "0.15.0"
+
+# Used for C bindings
+libc = "0.2"
+

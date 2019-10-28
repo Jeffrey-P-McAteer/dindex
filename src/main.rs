@@ -36,6 +36,7 @@ use dindex::server;
 use dindex::client;
 use dindex::data;
 use dindex::wire;
+use dindex::disp;
 
 use dindex::web_scan;
 
@@ -49,7 +50,7 @@ fn main() {
   match args.action {
     Action::query => {
       let res = client::query_sync(&conf, &args.get_record(&conf));
-      print_results(&conf, &res);
+      disp::print_results(&conf, &res);
     }
     Action::publish => {
       let rec = args.get_record(&conf);
@@ -64,7 +65,7 @@ fn main() {
     Action::listen => {
       let rec = args.get_record(&conf);
       client::listen_sync(&conf, &rec, |result| {
-        print_results(&conf, &vec![result]);
+        disp::print_results(&conf, &vec![result]);
         return client::ListenAction::Continue;
       });
     }
@@ -124,13 +125,6 @@ fn main() {
     }
   }
   
-}
-
-fn print_results(config: &config::Config, results: &Vec<record::Record>) {
-  for res in results {
-    // TODO custom formatting from config/ctypes/whatever
-    println!("res = {:?}", res.p);
-  }
 }
 
 fn double_fork_impl(config: &config::Config) {
