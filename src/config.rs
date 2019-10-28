@@ -117,7 +117,7 @@ pub struct Server {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ServerProtocol {
-  UDP, TCP, UNIX,
+  UDP, TCP, UNIX, WEBSOCKET
 }
 
 #[derive(Debug, Clone)]
@@ -140,6 +140,9 @@ impl ServerProtocol {
     }
     else if s == "tcp".to_string() || s == "TCP".to_string() {
       return ServerProtocol::TCP;
+    }
+    else if s == "websocket".to_string() || s == "WEBSOCKET".to_string() {
+      return ServerProtocol::WEBSOCKET;
     }
     else {
       return ServerProtocol::UNIX;

@@ -78,6 +78,9 @@ pub fn publish_server_sync(config: &Config, server: &Server, rec: &Record) {
     ServerProtocol::UNIX => {
       std::unimplemented!()
     }
+    ServerProtocol::WEBSOCKET => {
+      std::unimplemented!()
+    }
   }
 }
 
@@ -189,6 +192,9 @@ pub fn query_server_sync(config: &Config, server: &Server, query: &Record) -> Ve
     }
     ServerProtocol::UNIX => {
       return query_unix_server_sync(config, server, query);
+    }
+    ServerProtocol::WEBSOCKET => {
+      std::unimplemented!()
     }
   }
 }
@@ -530,6 +536,9 @@ pub fn listen_server_sync<F: Fn(Record) -> ListenAction>(config: &Config, server
       std::unimplemented!()
     }
     ServerProtocol::UNIX => {
+      std::unimplemented!()
+    }
+    ServerProtocol::WEBSOCKET => {
       std::unimplemented!()
     }
   }
