@@ -29,6 +29,7 @@ use serde_json;
 use crate::actions::Action;
 use crate::config::Config;
 use crate::record::Record;
+use crate::signing;
 
 #[derive(StructOpt, Debug, Clone)]
 #[structopt(name = "dindex", about = "A distributed index for anything and everything")]
@@ -62,7 +63,9 @@ impl Args {
   // If no known types match, concatinates rec_args and parses as JSON.
   // Failing that, returns an empty record
   pub fn get_record(&self, config: &Config) -> Record {
-    return parse_record(&self.rec_args, self.verbose, config);
+    let mut rec = parse_record(&self.rec_args, self.verbose, config);
+    signing::maybe_sign_record(config, &mut rec);
+    return rec;
   }
   pub fn empty() -> Args {
     Args {

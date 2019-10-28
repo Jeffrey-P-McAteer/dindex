@@ -53,6 +53,10 @@ pub struct Config {
   pub client_http_custom_js: String,
   pub client_http_custom_css: String,
   
+  // When true (either from -S flag or set in config)
+  // clients sign queries and published records
+  pub client_use_sig: bool,
+  
   // Copied in from args, or can be specified in config .toml
   pub verbosity_level: u8,
   
@@ -141,12 +145,16 @@ impl ServerProtocol {
 
 pub fn read_config(a : &args::Args) -> Config {
   let be_verbose = cfg!(debug_assertions) || a.verbose > 0;
-  if let Some(config_file) = &a.config_file {
-    return get_config_detail(be_verbose, true, true, true, Ok(config_file.to_string()), a);
+  let mut config = if let Some(config_file) = &a.config_file {
+    get_config_detail(be_verbose, true, true, true, Ok(config_file.to_string()), a)
   }
   else {
-    return get_config_detail(be_verbose, true, true, true, std::env::var("DINDEX_CONF"), a);
+    get_config_detail(be_verbose, true, true, true, std::env::var("DINDEX_CONF"), a)
+  };
+  if a.signed {
+    config.client_use_sig = true;
   }
+  return config;
 }
 
 pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, check_env: bool, other_config_file: Result<String, std::env::VarError>, args: &args::Args) -> Config {
@@ -212,6 +220,7 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
     client_http_websocket_port: s_get_i64(be_verbose, &settings, "client_http_websocket_port", 8081) as u16,
     client_http_custom_js: s_get_str(be_verbose, &settings, "client_http_custom_js", include_str!("http/example_custom_js.js")),
     client_http_custom_css: s_get_str(be_verbose, &settings, "client_http_custom_css", include_str!("http/example_custom_css.css")),
+    client_use_sig: s_get_bool(be_verbose, &settings, "client_use_sig", false),
     verbosity_level: s_get_i64(be_verbose, &settings, "verbosity_level", args.verbose as i64) as u8,
     servers: s_get_server_vec(be_verbose, &settings, "servers"),
     server_port: s_get_i64(be_verbose, &settings, "server_port", 0x1de0 /*7648*/) as u16,

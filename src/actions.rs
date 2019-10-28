@@ -46,6 +46,7 @@ arg_enum! {
       run_http_client,
       run_gui_client,
       run_web_scan,
+      gen_identity,
       
       no_action // This is only used for testing and indicates lack of any action to be taken
   }

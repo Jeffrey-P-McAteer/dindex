@@ -30,6 +30,7 @@ pub mod client;
 pub mod http_client;
 pub mod data;
 pub mod wire;
+pub mod signing;
 
 pub mod web_scan;
 

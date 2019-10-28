@@ -101,6 +101,24 @@ fn main() {
       });
     }
     
+    Action::gen_identity => {
+      let dev_stderr = "/dev/stderr".to_string();
+      let output_path = args.rec_args.get(0).unwrap_or(&dev_stderr);
+      std::process::Command::new("sh")
+        .args(&[
+          "-c", format!( // TODO warn/protect against dumb exploitable filename inputs?
+            r#"openssl genpkey \
+              -algorithm RSA \
+              -pkeyopt rsa_keygen_bits:2048 \
+              -pkeyopt rsa_keygen_pubexp:65537 | \
+              openssl pkcs8 -topk8 -nocrypt -outform der > '{}'"#,
+            output_path
+          ).as_str()
+        ])
+        .status()
+        .expect("Could not run openssl command");
+    }
+    
     other => {
       println!("Cannot handle action {}", other);
     }
