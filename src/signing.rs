@@ -156,7 +156,7 @@ pub fn is_valid_sig(rec: &Record) -> bool {
             }
             if key.ends_with("-sig") {
               let unsig_key = &key[0..key.len()-4];
-              println!("key={}  unsig_key={}", &key, &unsig_key);
+              //println!("key={}  unsig_key={}", &key, &unsig_key);
               let unsigned_val = rec.p.get(unsig_key).unwrap_or(&empty_str);
               if ! check_single_sig(&pkey, unsig_key, unsigned_val, &val) {
                 return false;
@@ -186,5 +186,43 @@ pub fn check_single_sig(pub_key: &PKey<Public>, value_key: &str, value: &str, si
   verifier.update(value.as_bytes()).unwrap();
   let sig = base64::decode(sig_base64).unwrap_or(vec![]);
   return verifier.verify(&sig).unwrap();
+}
+
+pub fn is_auth_by_server(rec: &Record, config: &Config) -> bool {
+  use std::io::BufReader;
+  use std::io::BufRead;
+  use std::fs::File;
+  
+  if !is_valid_sig(rec) {
+    return false; // Cannot be trusted by server if anon sigs aren't even correct
+  }
+  
+  let new_s = String::new();
+  let rec_pub_key_s = rec.p.get("public-key").unwrap_or(&new_s);
+  
+  if rec_pub_key_s.len() < 1 {
+    return false; // no pub key given
+  }
+  
+  match File::open(&config.server_trusted_keys_file) {
+    Ok(f) => {
+      let buff = BufReader::new(&f);
+      for (num, line) in buff.lines().enumerate() {
+        if let Ok(line) = line {
+          if line.starts_with("#") || line.trim().len() < 1 {
+            continue;
+          }
+          if &line == rec_pub_key_s {
+            return true;
+          }
+        }
+      }
+    }
+    Err(e) => {
+      println!("Error opening server_trusted_keys_file: {}", e);
+    }
+  }
+  // Some error or nothing in auth file matches, fail safe
+  return false;
 }
 

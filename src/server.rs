@@ -520,6 +520,7 @@ fn handle_conn(from_client: mpsc::Receiver<WireData>, to_client: mpsc::Sender<Wi
       if config.is_debug() {
         println!("got connection, wire_data={:?}", wire_data);
         println!("record.is_signed() = {}", wire_data.record.is_signed());
+        println!("record.is_auth_by_server() = {}", wire_data.record.is_auth_by_server(config));
       }
       let ts_to_client = Arc::new(Mutex::new(to_client.clone()));
       match wire_data.action {

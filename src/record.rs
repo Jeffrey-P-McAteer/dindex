@@ -23,6 +23,7 @@ use regex::Regex;
 use std::collections::HashMap;
 
 use crate::signing;
+use crate::config::Config;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct Record {
@@ -40,6 +41,9 @@ impl Record {
   }
   pub fn is_signed(&self) -> bool {
     signing::is_valid_sig(self)
+  }
+  pub fn is_auth_by_server(&self, config: &Config) -> bool {
+    signing::is_auth_by_server(self, config)
   }
   pub fn pub_key(&self) -> String {
     let empty_str = String::new();
