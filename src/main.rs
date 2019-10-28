@@ -110,6 +110,11 @@ fn main() {
       println!("Wrote new identity to {}", output_path);
     }
     
+    Action::print_identity => {
+      println!("======= Public Key =======");
+      println!("{}", signing::read_pub_key_base64(&conf.client_private_key_file));
+    }
+    
     other => {
       println!("Cannot handle action {}", other);
     }

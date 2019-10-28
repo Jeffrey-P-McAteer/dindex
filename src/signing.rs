@@ -77,6 +77,32 @@ pub fn maybe_sign_record(config: &Config, rec: &mut Record) {
   
 }
 
+pub fn read_pub_key_base64(identity_file_path: &str) -> String {
+  match read_file(&Path::new(identity_file_path)) {
+    Ok(identity_file_bytes) => {
+      match try_parse_rsa(&identity_file_bytes) {
+        Ok(rsa_pair) => {
+          match PKey::from_rsa(rsa_pair) {
+            Ok(generic_key_pair) => {
+              return base64::encode(&generic_key_pair.public_key_to_pem().unwrap_or(vec![]));
+            }
+            Err(e) => {
+              println!("Error making RSA keys generic: {}", e);
+            }
+          }
+        }
+        Err(e) => {
+          println!("Error parsing identity file: {:?}", e);
+        }
+      }
+    }
+    Err(e) => {
+      println!("Error reading identity private key: {}", e);
+    }
+  }
+  return String::new();
+}
+
 pub fn try_parse_rsa(bytes: &[u8]) -> Result<Rsa<Private>, ()> {
   if let Ok(ret) = Rsa::private_key_from_pem(bytes) {
     return Ok(ret);
