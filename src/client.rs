@@ -661,7 +661,7 @@ pub fn listen_server_sync<F: Fn(Record) -> ListenAction>(config: &Config, server
       listen_tcp_server_sync(config, server, query, callback);
     }
     ServerProtocol::UDP => {
-      std::unimplemented!()
+      listen_udp_server_sync(config, server, query, callback);
     }
     ServerProtocol::UNIX => {
       std::unimplemented!()
@@ -767,4 +767,103 @@ pub fn listen_tcp_server_sync<F: Fn(Record) -> ListenAction>(_config: &Config, s
   }
 }
 
-
+pub fn listen_udp_server_sync<F: Fn(Record) -> ListenAction>(_config: &Config, server: &Server, query: &Record, callback: F) {
+  use std::net::UdpSocket;
+  
+  let wire_data = WireData {
+    action: Action::listen,
+    record: query.clone(),
+  };
+  
+  let server_ip_and_port = format!("{}:{}", server.host, server.port);
+  
+  match UdpSocket::bind("0.0.0.0:0") {
+    Ok(socket) => {
+      if let Err(e) = socket.set_read_timeout(Some(Duration::from_millis(256))) {
+        println!("Error setting UDP read timeout: {}", e);
+      }
+      if let Err(e) = socket.set_write_timeout(Some(Duration::from_millis(256))) {
+        println!("Error setting UDP write timeout: {}", e);
+      }
+      
+      if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
+        if let Err(e) = socket.send_to(&bytes, &server_ip_and_port) {
+          println!("Error sending WireData to server in publish_udp_server_sync: {}", e);
+        }
+        // Write the terminal 0xff byte
+        if let Err(e) = socket.send_to(&[0xff], &server_ip_and_port) {
+          println!("Error sending WireData to server in publish_udp_server_sync: {}", e);
+        }
+      }
+      
+      // Read results until connection is closed
+      // We use 0xff ("break" stop code in the CBOR spec (rfc 7049))
+      // as a deliminator because it is least likely to interfere with CBOR stuff.
+      
+      //let start = Instant::now(); // TODO add timeout on all these queries
+      let mut buff = [0; 16 * 1024];
+      let mut overflow_buff = vec![]; // Unused but read-in bytes are appended here
+      loop {
+        match socket.recv_from(&mut buff) {
+          Ok((num_read, _src_socket)) => {
+            let new_bytes_read = &buff[0..num_read];
+            let mut parse_buff = overflow_buff.clone();
+            parse_buff.extend_from_slice(new_bytes_read);
+            let parse_buff = parse_buff; // All unparsed bytes
+            // Jump to the next 0xff byte and parse data from 0..ff_i as a WireData object
+            if let Some(ff_i) = parse_buff.iter().position(|&r| r == 0xff) {
+              // There exists a 0xff at ff_i, use it to get the CBOR bytes
+              let mut cbor_slice = vec![];
+              cbor_slice.extend_from_slice(&parse_buff[0..ff_i]);
+              // Remove last 0xff byte from cbor_slice
+              if cbor_slice.last().eq(&Some(&0xff)) {
+                cbor_slice.pop();
+              }
+              if let Ok(wire_res) = serde_cbor::from_slice::<WireData>(&cbor_slice) {
+                //println!("wire_res={:?}", wire_res);
+                match wire_res.action {
+                  Action::end_of_results => {
+                    break;
+                  }
+                  Action::result => {
+                    if callback(wire_res.record) == ListenAction::EndListen {
+                      break;
+                    }
+                  }
+                  unexpected => {
+                    println!("Unexpected action from server, ignoring packet: {}", unexpected);
+                  }
+                }
+              }
+              // TODO improve below
+              // For the moment we always throw out bytes reguardless of if they were a valid WireData or not
+              overflow_buff = vec![];
+              overflow_buff.extend_from_slice(&parse_buff[ff_i+1..]);
+            }
+            else {
+              // There is no 0xff, we must read more data.
+              // For the moment store all data in overflow_buff
+              overflow_buff = parse_buff.clone();
+            }
+            
+          }
+          Err(e) => {
+            if e.kind() == std::io::ErrorKind::WouldBlock {
+              // "fatal" error; we actually probably want to handle
+              // this somehow, but for now this is a reliable server-dropped-conn
+              // signal.
+              break;
+            }
+            println!("Error reading from UDP: {} (kind={:?})", &e, &e.kind());
+            break;
+          }
+        }
+      }
+      
+    }
+    Err(e) => {
+      println!("Error in publish_udp_server_sync: {}", e);
+    }
+  }
+  
+}
