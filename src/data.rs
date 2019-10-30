@@ -106,6 +106,11 @@ impl Data {
         // Remove over-capacity listeners
         if listeners.len() > self.max_listeners {
           let num_over = listeners.len() - self.max_listeners;
+          for to_be_drained_listener in &listeners[0..num_over] {
+            if let Err(e) = to_be_drained_listener.tx.send(WireData::end_of_results()) {
+              println!("Error sending data to listener: {}", e);
+            }
+          }
           listeners.drain(0..num_over);
         }
         //println!("listeners.len() = {}", listeners.len());
@@ -118,7 +123,11 @@ impl Data {
   pub fn trim_all_listeners(&self) {
     match self.listeners.lock() {
       Ok(mut listeners) => {
-        //listeners.clear();
+        for listener in listeners.iter() {
+          if let Err(e) = listener.tx.send(WireData::end_of_results()) {
+            println!("Error sending data to listener: {}", e);
+          }
+        }
         listeners.retain(|_l| { false });
         //println!("trim all listeners.len() = {}", listeners.len());
       }

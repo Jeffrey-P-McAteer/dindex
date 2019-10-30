@@ -37,4 +37,10 @@ impl WireData {
       record: record,
     }
   }
+  pub fn end_of_results() -> WireData {
+    WireData {
+      action: Action::end_of_results,
+      record: Record::empty(),
+    }
+  }
 }

@@ -176,6 +176,14 @@ pub fn run_udp_sync(config: &Config, data: &Data) {
               //println!("Unknown error: {}", e);
           }
         }
+        // Housekeeping after every connection is closed
+        if data.exit_flag.load(Ordering::Relaxed) {
+          if config.is_debug() {
+            println!("udp exiting due to data.exit_flag");
+            data.trim_all_listeners();
+          }
+          break;
+        }
       }
       
     }
