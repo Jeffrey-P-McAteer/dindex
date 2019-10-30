@@ -39,6 +39,7 @@ fn server_listen() {
     port: port,
     path: "/tmp/dindex.test.socket".to_string(),
     max_latency_ms: 250,
+    report_connect_errors: true,
   };
   test_config.servers = vec![localhost_server];
   test_config.server_port = port;
@@ -46,6 +47,7 @@ fn server_listen() {
   test_config.server_listen_tcp = true;
   test_config.server_listen_udp = false;
   test_config.server_listen_unix = false;
+  test_config.server_listen_websocket = false;
   
   // Tell server not to store records outside this process's memory
   test_config.server_datastore_uri = "memory://".to_string();

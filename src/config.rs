@@ -73,6 +73,10 @@ pub struct Config {
   pub server_listen_unix: bool,
   pub server_listen_websocket: bool,
   
+  // Defaults to false, when set true server will not report
+  // many useful messages. This is used to silence benchmark tests.
+  pub server_extra_quiet: bool,
+  
   pub server_max_listeners: usize,
   
   pub server_pid_file: String,
@@ -241,6 +245,7 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
     server_listen_udp: s_get_bool(be_verbose, &settings, "server_listen_udp", true),
     server_listen_unix: s_get_bool(be_verbose, &settings, "server_listen_unix", true),
     server_listen_websocket: s_get_bool(be_verbose, &settings, "server_listen_websocket", true),
+    server_extra_quiet: s_get_bool(be_verbose, &settings, "server_extra_quiet", false),
     server_max_listeners: s_get_i64(be_verbose, &settings, "server_max_listeners", 100) as usize,
     server_pid_file: s_get_str(be_verbose, &settings, "server_pid_file", "/tmp/dindex.pid"),
     server_ip: s_get_str(be_verbose, &settings, "server_ip", "0.0.0.0"),

@@ -1,4 +1,4 @@
-/**
+/*
  *  dIndex - a distributed, organic, mechanical index for everything
  *  Copyright (C) 2019  Jeffrey McAteer <jeffrey.p.mcateer@gmail.com>
  *  
@@ -17,14 +17,60 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#[macro_use]
+extern crate bencher;
+use bencher::Bencher;
+
+use rand::prelude::*;
+use rand::{thread_rng, Rng};
+use rand::distributions::Alphanumeric;
+ 
 use crossbeam_utils::thread;
 
 use std::time::Duration;
 
 use dindex;
 
-#[test]
-fn server_store_retrieve() {
+fn gen_rand_record() -> dindex::record::Record {
+  let mut rng = rand::thread_rng();
+  let mut rec = dindex::record::Record::empty();
+  let num_pairs: usize = rng.gen_range(2, 6);
+  for _ in 0..num_pairs {
+    let key_len: usize = rng.gen_range(2, 64);
+    let rand_key: String = thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(key_len)
+        .collect();
+        
+    let val_len: usize = rng.gen_range(8, 512);
+    let rand_val: String = thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(val_len)
+        .collect();
+        
+    rec.p.insert(rand_key, rand_val);
+  }
+  rec
+}
+
+/**
+ * This test measures single-record generation time.
+ * This should be used to help evaluate other tests which are forced
+ * to include the record generation time where subtracting that
+ * cost yields a more realistic measurement.
+ */
+fn single_rand_record_gen(b: &mut Bencher) {
+  b.iter(|| {
+    gen_rand_record()
+  })
+}
+
+/**
+ * This test sets up a TCP server writing to an in-memory store of records.
+ * Bencher should report average single-record insert time.
+ * This time includes TCP connection setup time and random record generation time.
+ */
+fn tcp_mem_insert_flood(b: &mut Bencher) {
   let mut test_config = dindex::config::get_config_detail(
     // this is the method that reads from env, but we specify no env in the arguments
     false, false, false, false,
@@ -48,6 +94,7 @@ fn server_store_retrieve() {
   test_config.server_listen_udp = false;
   test_config.server_listen_unix = false;
   test_config.server_listen_websocket = false;
+  test_config.server_extra_quiet = true;
   
   // Tell server not to store records outside this process's memory
   test_config.server_datastore_uri = "memory://".to_string();
@@ -64,42 +111,21 @@ fn server_store_retrieve() {
       dindex::server::run_tcp_sync(&test_config, &mut data);
     }));
     
+    // Thread which publishes listened-for records
     handlers.push(s.spawn(|_| {
-      // This is where client logic is tested
       std::thread::sleep(Duration::from_millis(25));
-      // Server should have bound to ports within 25ms
       
-      // Test that empty server is empty
-      let query_1 = {
-        let mut rec = dindex::record::Record::empty();
-        rec.p.insert("NAME".to_string(), ".*".to_string());
-        rec
-      };
-      let results = dindex::client::query_sync(&test_config, &query_1);
-      assert_eq!(results.len(), 0);
+      b.iter(|| {
+        let random_rec = gen_rand_record();
+        dindex::client::publish_sync(&test_config, &random_rec);
+        random_rec
+      });
       
-      // Add a record and check that it can be retrieved
-      let rec_1 = {
-        let mut rec = dindex::record::Record::empty();
-        rec.p.insert("NAME".to_string(), "Lorem ipsum dolor sit amet, consectetur adipiscing elit.".to_string());
-        rec.p.insert("URL".to_string(), "https://lipsum.com/".to_string());
-        rec
-      };
-      dindex::client::publish_sync(&test_config, &rec_1);
-      
-      let results = dindex::client::query_sync(&test_config, &query_1);
-      assert_eq!(results.len(), 1);
-      
-      let empty_s = String::new();
-      let rec_1_url = results[0].p.get(&"URL".to_string()).unwrap_or(&empty_s);
-      assert_eq!(rec_1_url, "https://lipsum.com/");
-      // ^ now we know we got the same record back
-      
-      
-      // Instruct server to exit
+      // Instruct server to exit, test completed
       exit_flag.store(true, std::sync::atomic::Ordering::Relaxed);
       // Send it network traffic to force eval of exit_flag
-      dindex::client::query_sync(&test_config, &query_1);
+      let random_rec = gen_rand_record();
+      dindex::client::publish_sync(&test_config, &random_rec);
       
     }));
     
@@ -107,6 +133,7 @@ fn server_store_retrieve() {
       h.join().unwrap();
     }
   }).unwrap();
-  
-  
 }
+
+benchmark_group!(benches, single_rand_record_gen, tcp_mem_insert_flood);
+benchmark_main!(benches);

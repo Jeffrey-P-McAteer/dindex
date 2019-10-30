@@ -86,7 +86,9 @@ pub fn run_tcp_sync(config: &Config, data: &Data) {
   use std::collections::VecDeque;
   
   let ip_port = format!("{}:{}", config.server_ip, config.server_port);
-  println!("tcp starting on {}", &ip_port);
+  if !config.server_extra_quiet {
+    println!("tcp starting on {}", &ip_port);
+  }
   
   match TcpListener::bind(&ip_port) {
     Ok(listener) => {

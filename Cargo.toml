@@ -16,6 +16,9 @@ gui-client = []
 # By default we have no gui client (it's expensive to build and mostly unecessary)
 default = []
 
+[[bench]]
+name = "perf"
+harness = false
 
 [dependencies]
 
@@ -70,4 +73,8 @@ nix = "0.15.0"
 
 # Used for C bindings
 libc = "0.2"
+
+# Performance testing
+bencher = "0.1.5"
+rand = "0.7.2"
 
