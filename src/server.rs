@@ -140,7 +140,9 @@ pub fn run_udp_sync(config: &Config, data: &Data) {
   use std::time::Duration;
   
   let ip_port = format!("{}:{}", config.server_ip, config.server_port);
-  println!("udp starting on {}", &ip_port);
+  if !config.server_extra_quiet {
+    println!("udp starting on {}", &ip_port);
+  }
   
   match UdpSocket::bind(ip_port) {
     Ok(mut socket) => {
@@ -159,7 +161,9 @@ pub fn run_udp_sync(config: &Config, data: &Data) {
           Ok((num_bytes, src)) => {
               let packet = incoming_buf[0..num_bytes].to_vec();
               if config.is_debug() {
-                println!("UDP: {} bytes from {:?}", num_bytes, src);
+                if !config.server_extra_quiet {
+                  println!("UDP: {} bytes from {:?}", num_bytes, src);
+                }
               }
               handle_udp_conn(&mut socket, src, packet, config, data);
           }
@@ -192,7 +196,9 @@ pub fn run_unix_sync(config: &Config, data: &Data) {
   use std::collections::VecDeque;
   use std::path::Path;
   
-  println!("unix listening to {}", &config.server_unix_socket);
+  if !config.server_extra_quiet {
+    println!("unix listening to {}", &config.server_unix_socket);
+  }
   
   if Path::new(&config.server_unix_socket).exists() {
     if let Err(e) = fs::remove_file(&config.server_unix_socket) {
@@ -556,7 +562,9 @@ pub fn run_websocket_sync(config: &Config, data: &Data) {
           // Further housekeeping
           if data.exit_flag.load(Ordering::Relaxed) {
             if config.is_debug() {
-              println!("tcp exiting due to data.exit_flag");
+              if !config.server_extra_quiet {
+                println!("tcp exiting due to data.exit_flag");
+              }
               data.trim_all_listeners();
             }
             break;
@@ -673,9 +681,11 @@ fn handle_conn(from_client: mpsc::Receiver<WireData>, to_client: mpsc::Sender<Wi
     }
     Ok(wire_data) => {
       if config.is_debug() {
-        println!("got connection, wire_data={:?}", wire_data);
-        println!("record.is_signed() = {}", wire_data.record.is_signed());
-        println!("record.is_auth_by_server() = {}", wire_data.record.is_auth_by_server(config));
+        if !config.server_extra_quiet {
+          println!("got connection, wire_data={:?}", wire_data);
+          println!("record.is_signed() = {}", wire_data.record.is_signed());
+          println!("record.is_auth_by_server() = {}", wire_data.record.is_auth_by_server(config));
+        }
       }
       let ts_to_client = Arc::new(Mutex::new(to_client.clone()));
       match wire_data.action {

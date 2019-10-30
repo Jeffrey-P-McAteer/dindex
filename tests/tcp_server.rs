@@ -48,6 +48,7 @@ fn server_store_retrieve() {
   test_config.server_listen_udp = false;
   test_config.server_listen_unix = false;
   test_config.server_listen_websocket = false;
+  test_config.server_extra_quiet = true;
   
   // Tell server not to store records outside this process's memory
   test_config.server_datastore_uri = "memory://".to_string();
