@@ -76,7 +76,7 @@ pub fn publish_server_sync(config: &Config, server: &Server, rec: &Record) {
       publish_udp_server_sync(config, server, rec);
     }
     ServerProtocol::UNIX => {
-      std::unimplemented!()
+      publish_unix_server_sync(config, server, rec);
     }
     ServerProtocol::WEBSOCKET => {
       std::unimplemented!()
@@ -156,6 +156,42 @@ pub fn publish_udp_server_sync(_config: &Config, server: &Server, rec: &Record) 
   }
   
 }
+
+pub fn publish_unix_server_sync(_config: &Config, server: &Server, rec: &Record) {
+  use std::os::unix::net::UnixStream;
+  
+  let wire_data = WireData {
+    action: Action::publish,
+    record: rec.clone(),
+  };
+  
+  match UnixStream::connect(&server.path) {
+    Ok(mut stream) => {
+      if let Err(e) = stream.set_read_timeout(Some(Duration::from_millis(256))) {
+        println!("Error setting TCP read timeout: {}", e);
+      }
+      if let Err(e) = stream.set_write_timeout(Some(Duration::from_millis(256))) {
+        println!("Error setting TCP write timeout: {}", e);
+      }
+      
+      if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
+        if let Err(e) = stream.write(&bytes) {
+          println!("Error sending WireData to server in publish_unix_server_sync: {}", e);
+        }
+        // Write the terminal 0xff byte
+        if let Err(e) = stream.write(&[0xff]) {
+          println!("Error sending WireData to server in publish_unix_server_sync: {}", e);
+        }
+      }
+      // At the moment we don't expect data back from the server
+    }
+    Err(e) => {
+      println!("Error in publish_unix_server_sync: {}", e);
+    }
+  }
+  
+}
+
 
 pub fn query_sync(config: &Config, query: &Record) -> Vec<Record> {
   let results: Arc<Mutex<Vec<Record>>> = Arc::new(Mutex::new(vec![]));
