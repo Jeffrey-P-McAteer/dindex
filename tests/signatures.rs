@@ -47,10 +47,58 @@ fn sign_records() {
     rec
   };
   
+  let mut known_record_diff_order = {
+    let mut rec = dindex::record::Record::empty();
+    rec.p.insert("NUMBER".to_string(), "1112224444".to_string());
+    rec.p.insert("NAME".to_string(), "Lorem Ipsum".to_string());
+    rec
+  };
+  
+  let mut unrelated_similar_record = {
+    let mut rec = dindex::record::Record::empty();
+    rec.p.insert("NUMBER".to_string(), "3331115555".to_string());
+    rec.p.insert("NAME".to_string(), "Alice Bob".to_string());
+    rec
+  };
+  
+  let mut unrelated_unsimilar_record = {
+    let mut rec = dindex::record::Record::empty();
+    rec.p.insert("FOO".to_string(), "3331115555".to_string());
+    rec.p.insert("BAR".to_string(), "Alice Bob".to_string());
+    rec
+  };
+  
   dindex::signing::maybe_sign_record(&test_config, &mut known_record);
   assert!(dindex::signing::is_valid_sig(&known_record));
   
-  let mut imposter_record = {
+  dindex::signing::maybe_sign_record(&test_config, &mut known_record_diff_order);
+  assert!(dindex::signing::is_valid_sig(&known_record_diff_order));
+  
+  dindex::signing::maybe_sign_record(&test_config, &mut unrelated_similar_record);
+  assert!(dindex::signing::is_valid_sig(&unrelated_similar_record));
+  
+  dindex::signing::maybe_sign_record(&test_config, &mut unrelated_unsimilar_record);
+  assert!(dindex::signing::is_valid_sig(&unrelated_unsimilar_record));
+  
+  // Signatures for messages should be identical no matter the order their keys are in
+  assert_eq!(
+    known_record.p.get(dindex::signing::signing_non_sig_bytes_key).unwrap().to_string(),
+    known_record_diff_order.p.get(dindex::signing::signing_non_sig_bytes_key).unwrap().to_string()
+  );
+  
+  // Signatures for different messages should be different
+  assert_ne!(
+    known_record.p.get(dindex::signing::signing_non_sig_bytes_key).unwrap().to_string(),
+    unrelated_unsimilar_record.p.get(dindex::signing::signing_non_sig_bytes_key).unwrap().to_string()
+  );
+  
+  // Signatures for different messages should be different
+  assert_ne!(
+    known_record.p.get(dindex::signing::signing_non_sig_bytes_key).unwrap().to_string(),
+    unrelated_similar_record.p.get(dindex::signing::signing_non_sig_bytes_key).unwrap().to_string()
+  );
+  
+  let imposter_record = {
     let mut rec = dindex::record::Record::empty();
     // Change: kept same letters, moved letters around
     rec.p.insert("NAME".to_string(), "Ipsum Lorem".to_string());

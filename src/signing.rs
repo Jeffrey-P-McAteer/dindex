@@ -248,18 +248,25 @@ pub fn check_nonsig_bytes(pub_key: &PKey<Public>, rec: &Record, sig_base64: &str
   return verifier.verify(&sig).unwrap();
 }
 
-// Parses out all non T-sig and public-key strings, concatinating their
-// byte representations. Used to create an HMAC of sorts to prevent
-// an attack where signed key-value pairs can be spliced together in different Records.
-// Bytes are sorted smallest -> largest to prevent having to deal with ordering of key-value pairs.
+// Parses out all non T-sig and public-key strings, sorting alphanumerically by keys
+// then concatinating all KEY+VAL pairs.
 pub fn non_sig_bytes(rec: &Record) -> Vec<u8> {
+  use std::collections::BTreeMap;
   let mut bytes = vec![];
+  
+  let mut sorted_map = BTreeMap::new();
   for (key, val) in &rec.p {
     if !key_is_used_in_signing(key) {
-      bytes.extend(val.as_bytes());
+      // TODO can we reference as a perf improvement?
+      sorted_map.insert(key.clone(), val.clone());
     }
   }
-  bytes.sort();
+  
+  for (key, val) in sorted_map.iter() {
+    bytes.extend(key.as_bytes());
+    bytes.extend(val.as_bytes());
+  }
+  
   return bytes;
 }
 
