@@ -146,3 +146,70 @@ fn gen_rand_record() -> dindex::record::Record {
   }
   rec
 }
+
+// Chaos monkey stuff here - unicode, invalid unicode, an null bytes are valid
+// key and value tokens
+fn gen_rand_junk_record() -> dindex::record::Record {
+  use rand::{thread_rng, Rng};
+  
+  let mut rng = rand::thread_rng();
+  let mut rec = dindex::record::Record::empty();
+  let num_pairs: usize = rng.gen_range(2, 6);
+  for _ in 0..num_pairs {
+    let key_len: usize = rng.gen_range(2, 64);
+    let rand_key: String = thread_rng()
+        .sample_iter(&UnicodeAndJunkCharsDist)
+        .take(key_len)
+        .collect();
+        
+    let val_len: usize = rng.gen_range(8, 512);
+    let rand_val: String = thread_rng()
+        .sample_iter(&UnicodeAndJunkCharsDist)
+        .take(val_len)
+        .collect();
+        
+    rec.p.insert(rand_key, rand_val);
+  }
+  rec
+}
+
+#[derive(Debug)]
+pub struct UnicodeAndJunkCharsDist;
+
+// Highly unsafe, designed to maximize the probability of breaking things.
+impl rand::distributions::Distribution<char> for UnicodeAndJunkCharsDist {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> char {
+        loop {
+            let var = rng.next_u32();
+            // if let Some(nonsense_char) = core::char::from_u32(var) {
+            //   return nonsense_char;
+            // }
+            unsafe { // The goal is to break things guys
+              return std::char::from_u32_unchecked(var);
+            }
+        }
+    }
+}
+
+
+
+#[test]
+fn junk_input_tests() {
+  let test_identity_f = "/tmp/dindex-test.identity.2";
+  dindex::signing::gen_identity(test_identity_f.clone());
+  
+  let mut test_config = dindex::config::get_config_detail(
+    false, false, false, false,
+    Err(std::env::VarError::NotPresent),
+    &dindex::args::Args::empty()
+  );
+  test_config.client_use_sig = true;
+  test_config.client_private_key_file = test_identity_f.to_string();
+  
+  for _ in 0..1000 {
+    let mut junk_data = gen_rand_junk_record();
+    dindex::signing::maybe_sign_record(&test_config, &mut junk_data);
+    assert!(dindex::signing::is_valid_sig(&junk_data));
+  }
+  
+}
