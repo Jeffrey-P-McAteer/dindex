@@ -250,6 +250,75 @@ fn tcp_mem_query_over_1k(b: &mut Bencher) {
   }).unwrap();
 }
 
+fn tcp_mem_query_over_100(b: &mut Bencher) {
+  let mut test_config = dindex::config::get_config_detail(
+    // this is the method that reads from env, but we specify no env in the arguments
+    false, false, false, false,
+    Err(std::env::VarError::NotPresent),
+    &dindex::args::Args::empty()
+  );
+  // Write details for temporary data
+  let port = 2001;
+  let localhost_server = dindex::config::Server {
+    protocol: dindex::config::ServerProtocol::TCP,
+    host: "127.0.0.1".to_string(),
+    port: port,
+    path: "/tmp/dindex.test.socket".to_string(),
+    max_latency_ms: 250,
+    report_connect_errors: true,
+  };
+  test_config.servers = vec![localhost_server];
+  test_config.server_port = port;
+  test_config.server_ip = "127.0.0.1".to_string();
+  test_config.server_listen_tcp = true;
+  test_config.server_listen_udp = false;
+  test_config.server_listen_unix = false;
+  test_config.server_listen_websocket = false;
+  test_config.server_extra_quiet = true;
+  
+  // Tell server not to store records outside this process's memory
+  test_config.server_datastore_uri = "memory://".to_string();
+  
+  // Create a data store
+  let mut data = dindex::data::Data::new(&test_config);
+  let exit_flag = data.exit_flag.clone();
+  
+  // Spawn server and client threads to perform testing
+  thread::scope(|s| {
+    let mut handlers = vec![];
+    
+    handlers.push(s.spawn(|_| {
+      dindex::server::run_tcp_sync(&test_config, &mut data);
+    }));
+    
+    // Wait for server to start
+    std::thread::sleep(Duration::from_millis(25));
+    
+    // Publish 1k random records
+    for _ in 0..100 {
+      let random_rec = gen_rand_record_exp(4, 8);
+      dindex::client::publish_sync(&test_config, &random_rec);
+    }
+    
+    // Benchmark random regex queries
+    b.iter(|| {
+      let random_rec = gen_rand_query_exp(4, 2);
+      let results = dindex::client::query_sync(&test_config, &random_rec);
+      results
+    });
+    
+    // Instruct server to exit, test completed
+    exit_flag.store(true, std::sync::atomic::Ordering::Relaxed);
+    // Send it network traffic to force eval of exit_flag
+    let random_rec = gen_rand_record();
+    dindex::client::publish_sync(&test_config, &random_rec);
+    
+    for h in handlers {
+      h.join().unwrap();
+    }
+  }).unwrap();
+}
+
 fn tcp_mem_query_over_10(b: &mut Bencher) {
   let mut test_config = dindex::config::get_config_detail(
     // this is the method that reads from env, but we specify no env in the arguments
@@ -323,6 +392,7 @@ benchmark_group!(benches,
   single_rand_record_gen,
   tcp_mem_insert_flood,
   tcp_mem_query_over_1k,
+  tcp_mem_query_over_100,
   tcp_mem_query_over_10,
 );
 benchmark_main!(benches);
