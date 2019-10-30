@@ -511,7 +511,66 @@ pub fn query_unix_server_sync(config: &Config, server: &Server, query: &Record) 
 }
 
 pub fn query_websocket_server_sync(config: &Config, server: &Server, query: &Record) -> Vec<Record> {
-  std::unimplemented!()
+  use websocket::client::ClientBuilder;
+  use websocket::{Message, OwnedMessage};
+  
+  let mut results = vec![];
+  
+  let wire_data = WireData {
+    action: Action::query,
+    record: query.clone(),
+  };
+  
+  let ip_and_port = format!("ws://{}:{}", server.host, server.port);
+  let mut unconnected_client = ClientBuilder::new(&ip_and_port).expect("Cannot construct websocket client");
+  match unconnected_client.connect_insecure() {
+    Ok(client) => {
+      let (mut receiver, mut sender) = client.split().unwrap();
+      
+      if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
+        if let Err(e) = sender.send_message(&OwnedMessage::Binary(bytes)) {
+          println!("Error sending WireData to server in query_websocket_server_sync: {}", e);
+          return vec![];
+        }
+      }
+      
+      // Read results until connection is closed
+      // We read one CBOR WireData object per websocket packet
+      for resp in receiver.incoming_messages() {
+        if let Ok(resp) = resp {
+          match resp {
+            OwnedMessage::Binary(buff) => {
+              if let Ok(wire_res) = serde_cbor::from_slice::<WireData>(&buff[..]) {
+                match wire_res.action {
+                  Action::end_of_results => {
+                    break;
+                  }
+                  Action::result => {
+                    results.push(wire_res.record);
+                  }
+                  unexpected => {
+                    println!("Unexpected action from server, ignoring packet: {}", unexpected);
+                  }
+                }
+              }
+            }
+            unk => {
+              println!("Unsupported websocket msg: {:?}", unk);
+            }
+          }
+        }
+      }
+      
+    }
+    Err(e) => {
+      if server.report_connect_errors {
+        println!("Error in query_websocket_server_sync: {}", e);
+      }
+      return vec![];
+    }
+  }
+  
+  return results;
 }
 
 pub fn listen_sync<F: Fn(Record) -> ListenAction + Send + Copy>(config: &Config, query: &Record, callback: F) {

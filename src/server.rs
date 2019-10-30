@@ -618,11 +618,6 @@ fn handle_websocket_conn(client: websocket::client::sync::Client<std::net::TcpSt
                               println!("Error sending result to WebSocket client: {}", e);
                               break; // stop sending, client has likely exited
                             }
-                            // Write packet seperation byte
-                            if let Err(e) = stream.send_message(&OwnedMessage::Binary(vec![0xff])) {
-                              println!("Error sending result to WebSocket client: {}", e);
-                              break; // stop sending, client has likely exited
-                            }
                           }
                         }
                       }
