@@ -667,7 +667,7 @@ pub fn listen_server_sync<F: Fn(Record) -> ListenAction>(config: &Config, server
       listen_unix_server_sync(config, server, query, callback);
     }
     ServerProtocol::WEBSOCKET => {
-      std::unimplemented!()
+      listen_websocket_server_sync(config, server, query, callback);
     }
   }
 }
@@ -964,6 +964,64 @@ pub fn listen_unix_server_sync<F: Fn(Record) -> ListenAction>(_config: &Config, 
     }
     Err(e) => {
       println!("Error in listen_unix_server_sync: {}", e);
+    }
+  }
+}
+
+pub fn listen_websocket_server_sync<F: Fn(Record) -> ListenAction>(_config: &Config, server: &Server, query: &Record, callback: F) {
+  use websocket::client::ClientBuilder;
+  use websocket::{OwnedMessage};
+  
+  let wire_data = WireData {
+    action: Action::listen,
+    record: query.clone(),
+  };
+  
+  let ip_and_port = format!("ws://{}:{}", server.host, server.port);
+  let mut unconnected_client = ClientBuilder::new(&ip_and_port).expect("Cannot construct websocket client");
+  match unconnected_client.connect_insecure() {
+    Ok(client) => {
+      let (mut receiver, mut sender) = client.split().unwrap();
+          
+      if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
+        if let Err(e) = sender.send_message(&OwnedMessage::Binary(bytes)) {
+          println!("Error sending WireData to server in listen_websocket_server_sync: {}", e);
+          return;
+        }
+      }
+      
+      // Read results until connection is closed
+      // We read one CBOR WireData object per websocket packet
+      for resp in receiver.incoming_messages() {
+        if let Ok(resp) = resp {
+          match resp {
+            OwnedMessage::Binary(buff) => {
+              if let Ok(wire_res) = serde_cbor::from_slice::<WireData>(&buff[..]) {
+                match wire_res.action {
+                  Action::end_of_results => {
+                    break;
+                  }
+                  Action::result => {
+                    if callback(wire_res.record) == ListenAction::EndListen {
+                      break;
+                    }
+                  }
+                  unexpected => {
+                    println!("Unexpected action from server, ignoring packet: {}", unexpected);
+                  }
+                }
+              }
+            }
+            unk => {
+              println!("Unsupported websocket msg: {:?}", unk);
+            }
+          }
+        }
+      }
+      
+    }
+    Err(e) => {
+      println!("Error in listen_websocket_server_sync: {}", e);
     }
   }
 }
