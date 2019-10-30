@@ -24,7 +24,7 @@ use std::time::Duration;
 use dindex;
 
 #[test]
-fn server_listen() {
+fn udp_server_listen() {
   let mut test_config = dindex::config::get_config_detail(
     // this is the method that reads from env, but we specify no env in the arguments
     false, false, false, false,
@@ -48,7 +48,7 @@ fn server_listen() {
   test_config.server_listen_udp = true;
   test_config.server_listen_unix = false;
   test_config.server_listen_websocket = false;
-  test_config.server_extra_quiet = true;
+  //test_config.server_extra_quiet = true;
   
   // Tell server not to store records outside this process's memory
   test_config.server_datastore_uri = "memory://".to_string();
