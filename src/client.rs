@@ -79,7 +79,7 @@ pub fn publish_server_sync(config: &Config, server: &Server, rec: &Record) {
       publish_unix_server_sync(config, server, rec);
     }
     ServerProtocol::WEBSOCKET => {
-      std::unimplemented!()
+      publish_websocket_server_sync(config, server, rec);
     }
   }
 }
@@ -190,6 +190,35 @@ pub fn publish_unix_server_sync(_config: &Config, server: &Server, rec: &Record)
     }
   }
   
+}
+
+
+pub fn publish_websocket_server_sync(_config: &Config, server: &Server, rec: &Record) {
+  use websocket::client::ClientBuilder;
+  use websocket::{OwnedMessage};
+  
+  let wire_data = WireData {
+    action: Action::publish,
+    record: rec.clone(),
+  };
+  
+  let ip_and_port = format!("ws://{}:{}", server.host, server.port);
+  let mut unconnected_client = ClientBuilder::new(&ip_and_port).expect("Cannot construct websocket client");
+  match unconnected_client.connect_insecure() {
+    Ok(client) => {
+      let (mut _receiver, mut sender) = client.split().unwrap();
+      
+      if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
+        if let Err(e) = sender.send_message(&OwnedMessage::Binary(bytes)) {
+          println!("Error sending WireData to server in publish_websocket_server_sync: {}", e);
+        }
+      }
+      // At the moment we don't expect data back from the server
+    }
+    Err(e) => {
+      println!("Error in publish_websocket_server_sync: {}", e);
+    }
+  }
 }
 
 
