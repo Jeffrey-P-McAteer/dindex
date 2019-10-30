@@ -24,7 +24,7 @@ use std::time::Duration;
 use dindex;
 
 #[test]
-fn server_store_retrieve() {
+fn udp_server_store_retrieve() {
   let mut test_config = dindex::config::get_config_detail(
     // this is the method that reads from env, but we specify no env in the arguments
     false, false, false, false,
