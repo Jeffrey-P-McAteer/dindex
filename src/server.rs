@@ -18,7 +18,7 @@
  */
 
 use crossbeam_utils::thread;
-use ws;
+use websocket;
 
 use std::io::prelude::*;
 use std::sync::atomic::Ordering;
@@ -515,65 +515,157 @@ fn handle_unix_conn(stream: Result<std::os::unix::net::UnixStream, std::io::Erro
   }
 }
 
-
 pub fn run_websocket_sync(config: &Config, data: &Data) {
+  use websocket::sync::Server;
   use std::collections::VecDeque;
   
   let ip_port = format!("{}:{}", config.server_ip, config.server_websocket_port);
   println!("websocket starting on {}", &ip_port); 
   
-  thread::scope(|s| {
-      let mut handlers = VecDeque::new();
-      handlers.reserve_exact(config.server_threads_in_flight + 4);
-      
-      ws::listen(&ip_port, |out: ws::Sender| {
-        
-        let (tx, rx) = mpsc::channel::<WireData>();
+  match Server::bind(ip_port) {
+    Ok(server) => {
+      thread::scope(|s| {
+        let mut handlers = VecDeque::new();
+        handlers.reserve_exact(config.server_threads_in_flight + 4);
           
-        let out2 = out.clone();
-        handlers.push_back(s.spawn(|_| {
-          handle_websocket_conn(out2, rx, config, data);
-        }));
-        
-        // This closure runs every time a message comes in + we push it to the channel that
-        // handle_websocket_conn listens to
-        move |msg: ws::Message| {
-            // msg contains raw typed in search query
-            if let ws::Message::Text(msg) = msg {
-              
-              match serde_json::from_str::<WireData>(&msg) {
-                Ok(wire_data) => {
-                  if let Err(e) = tx.send(wire_data) {
-                    println!("Error sending wire data to websocket handler: {}", e);
-                  }
-                }
-                Err(e) => {
-                  println!("Error parsing websocket wire data: {}", e);
-                  if let Err(e) = out.send(format!("Error parsing WireData: {}", e)) {
-                    println!("Error telling client about error: {}", e);
-                  }
-                }
-              };
-              
-              out.close(ws::CloseCode::Normal)
+        for request in server.filter_map(Result::ok) {
+          handlers.push_back(s.spawn(|_| {
+            match request.accept() {
+              Ok(client) => {
+                handle_websocket_conn(client, config, data);
+              }
+              Err(e) => {
+                println!("Error accepting websocket: {:?}", e);
+              }
             }
-            else {
-              out.send("Error: cannot process non-text data.")
+          }));
+          // Housekeeping
+          if handlers.len() > config.server_threads_in_flight {
+            let threads_to_join = (handlers.len() as f64 * config.server_threads_in_flight_fraction) as usize;
+            // Pop up to threads_to_join thread handles and join on them
+            for _ in 0..threads_to_join {
+              if let Some(h) = handlers.pop_front() {
+                if let Err(e) = h.join() {
+                  println!("Error joining TCP thread: {:?}", e);
+                }
+              }
             }
+          }
+          // Further housekeeping
+          if data.exit_flag.load(Ordering::Relaxed) {
+            if config.is_debug() {
+              println!("tcp exiting due to data.exit_flag");
+              data.trim_all_listeners();
+            }
+            break;
+          }
         }
-    }).unwrap();
-    
-    for h in handlers {
-      h.join().unwrap();
+        
+        for h in handlers {
+          h.join().unwrap();
+        }
+      }).unwrap();
     }
-    
-  }).unwrap();
+    Err(e) => {
+      println!("Error starting websocket: {}", e);
+    }
+  }
 }
 
-fn handle_websocket_conn(to_client: ws::Sender, from_client: mpsc::Receiver<WireData>, config: &Config, data: &Data) {
+fn handle_websocket_conn(client: websocket::client::sync::Client<std::net::TcpStream>, config: &Config, data: &Data) {
+  use websocket::message::OwnedMessage;
+  
+  let (mut receiver, mut sender) = client.split().unwrap();
+  
+  match receiver.recv_message() {
+    Err(e) => {
+      println!("Error receiving first websocket msg: {}", e);
+    }
+    Ok(msg) => {
+      match msg {
+        OwnedMessage::Binary(buff) => {
+          match serde_cbor::from_slice::<WireData>(&buff[..]) {
+            Err(e) => {
+              println!("Error reading WireData from WebSocket client: {}", e);
+              return;
+            }
+            Ok(wire_data) => {
+              
+              // Create channel to do business logic
+              let (to_business_logic, from_us) = mpsc::channel();
+              let (to_us, from_business_logic) = mpsc::channel();
+              let validity_flag = Arc::new(Mutex::new(AtomicBool::new(true)));
+              
+              
+              thread::scope(|s| {
+                let handler_validity_flag_c = validity_flag.clone();
+                let bt = s.spawn(|_| {
+                  handle_conn(from_us, to_us, config, data, handler_validity_flag_c);
+                });
+                
+                let client_to_business_t = s.spawn(move |_| {
+                  to_business_logic.send(wire_data).unwrap();
+                });
+                
+                let ts_stream = Arc::new(Mutex::new(sender));
+                let business_to_client_t = s.spawn(move |_| {
+                  loop {
+                    match from_business_logic.recv() {
+                      Ok(wire_data_to_client) => {
+                        if let Ok(mut stream) = ts_stream.lock() {
+                          if let Ok(bytes) = serde_cbor::to_vec(&wire_data_to_client) {
+                            if let Err(e) = stream.send_message(&OwnedMessage::Binary(bytes)) {
+                              println!("Error sending result to WebSocket client: {}", e);
+                              break; // stop sending, client has likely exited
+                            }
+                            // Write packet seperation byte
+                            if let Err(e) = stream.send_message(&OwnedMessage::Binary(vec![0xff])) {
+                              println!("Error sending result to WebSocket client: {}", e);
+                              break; // stop sending, client has likely exited
+                            }
+                          }
+                        }
+                      }
+                      Err(_e) => {
+                        //println!("Error in handle_tcp_conn looping business back to client: {}", e); // Always channel closed error
+                        break;
+                      }
+                    }
+                  }
+                  // Any listener/future logic on this connection is now invalid
+                  match validity_flag.lock() {
+                    Ok(mut validity_flag) => {
+                      *validity_flag.get_mut() = false;
+                    }
+                    Err(e) => {
+                      println!("Error validity_flag.lock() = {}", e);
+                    }
+                  }
+                  data.trim_invalid_listeners();
+                });
+                
+                if let Err(e) = bt.join() {
+                  println!("Error joining thread: {:?}", e);
+                }
+                if let Err(e) = client_to_business_t.join() {
+                  println!("Error joining thread: {:?}", e);
+                }
+                if let Err(e) = business_to_client_t.join() {
+                  println!("Error joining thread: {:?}", e);
+                }
+              }).unwrap();
+              
+            }
+          }
+        }
+        unk => {
+          println!("Unsupported websocket first msg: {:?}", unk);
+        }
+      }
+    }
+  }
   
 }
-
 
 // This is a generic channel implementation so we can seperate business
 // logic from tcp/udp/unix connection details.
