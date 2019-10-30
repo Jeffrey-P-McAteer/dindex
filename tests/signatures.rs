@@ -38,6 +38,39 @@ fn sign_records() {
   
   assert!(dindex::signing::is_valid_sig(&random_record));
   
+  // Now have some contrived attack scenarios
+  
+  let mut known_record = {
+    let mut rec = dindex::record::Record::empty();
+    rec.p.insert("NAME".to_string(), "Lorem Ipsum".to_string());
+    rec.p.insert("NUMBER".to_string(), "1112224444".to_string());
+    rec
+  };
+  
+  dindex::signing::maybe_sign_record(&test_config, &mut known_record);
+  assert!(dindex::signing::is_valid_sig(&known_record));
+  
+  let mut imposter_record = {
+    let mut rec = dindex::record::Record::empty();
+    // Change: kept same letters, moved letters around
+    rec.p.insert("NAME".to_string(), "Ipsum Lorem".to_string());
+    rec.p.insert("NUMBER".to_string(), "4444111222".to_string());
+    
+    // Because the public key and signature are public we can "copy" them.
+    // This test ensures that copied signatures will not be valid for any permutation
+    // other than the original document contents.
+    
+    rec.p.insert(dindex::signing::signing_pub_key_key.to_string(),
+      known_record.p.get(dindex::signing::signing_pub_key_key).unwrap().to_string());
+    
+    rec.p.insert(dindex::signing::signing_non_sig_bytes_key.to_string(),
+      known_record.p.get(dindex::signing::signing_non_sig_bytes_key).unwrap().to_string());
+    
+    rec
+  };
+  
+  assert!(!dindex::signing::is_valid_sig(&imposter_record));
+  
 }
 
 

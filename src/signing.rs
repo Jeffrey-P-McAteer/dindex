@@ -33,11 +33,11 @@ use crate::config::Config;
 use crate::record::Record;
 
 // Reserved key, holds base64 public key
-const signing_pub_key_key: &str = "SIGNING:public-key";
+pub const signing_pub_key_key: &str = "SIGNING:public-key";
 // Reserved key, holds base64 signature of non_sig_bytes() for a record
-const signing_non_sig_bytes_key: &str = "SIGNING:non-sig-bytes";
+pub const signing_non_sig_bytes_key: &str = "SIGNING:non-sig-bytes";
 // Reserved for all keys that match the pattern T-sig for all T
-const signing_sig_suffix: &str = "-sig";
+pub const signing_sig_suffix: &str = "-sig";
 
 pub fn gen_identity(output_file: &str) {
   let rsa = Rsa::generate(2048).unwrap();
@@ -137,10 +137,10 @@ pub fn try_parse_rsa_pub(bytes: &[u8]) -> Result<Rsa<Public>, ()> {
 
 fn sign_rec(keypair: &PKey<Private>, rec: &mut Record) {
   let mut signatures: HashMap<String, String> = HashMap::new();
-  for (key, val) in &rec.p {
-    let (sign_key, sign_val) = sign_single(keypair, key.to_string(), val.to_string());
-    signatures.insert(sign_key, sign_val);
-  }
+  // for (key, val) in &rec.p {
+  //   let (sign_key, sign_val) = sign_single(keypair, key.to_string(), val.to_string());
+  //   signatures.insert(sign_key, sign_val);
+  // }
   
   signatures.insert(signing_pub_key_key.to_string(), base64::encode(&keypair.public_key_to_pem().unwrap()));
   signatures.insert(signing_non_sig_bytes_key.to_string(), sign_nonsig_bytes(keypair, rec));
@@ -197,19 +197,19 @@ pub fn is_valid_sig(rec: &Record) -> bool {
     Ok(rsa_pub_key) => {
       match PKey::from_rsa(rsa_pub_key) {
         Ok(pkey) => {
-          for (key, val) in &rec.p {
-            if key == signing_pub_key_key {
-              continue;
-            }
-            if key.ends_with(signing_sig_suffix) {
-              let unsig_key = &key[0..key.len()-4];
-              //println!("key={}  unsig_key={}", &key, &unsig_key);
-              let unsigned_val = rec.p.get(unsig_key).unwrap_or(&empty_str);
-              if ! check_single_sig(&pkey, unsig_key, unsigned_val, &val) {
-                return false;
-              }
-            }
-          }
+          // for (key, val) in &rec.p {
+          //   if key == signing_pub_key_key {
+          //     continue;
+          //   }
+          //   if key.ends_with(signing_sig_suffix) {
+          //     let unsig_key = &key[0..key.len()-4];
+          //     //println!("key={}  unsig_key={}", &key, &unsig_key);
+          //     let unsigned_val = rec.p.get(unsig_key).unwrap_or(&empty_str);
+          //     if ! check_single_sig(&pkey, unsig_key, unsigned_val, &val) {
+          //       return false;
+          //     }
+          //   }
+          // }
           // Now check entire message non signing_sig_suffix field signature
           let base64_unsigned_sig = rec.p.get(signing_non_sig_bytes_key).unwrap_or(&empty_str);
           if ! check_nonsig_bytes(&pkey, rec, base64_unsigned_sig) {
