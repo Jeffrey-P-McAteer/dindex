@@ -74,6 +74,9 @@ nix = "0.15.0"
 # Used for C bindings
 libc = "0.2"
 
+# Used to let users inject new functionality via scripts
+rhai = "0.9.1"
+
 # Performance testing
 bencher = "0.1.5"
 rand = "0.7.2"

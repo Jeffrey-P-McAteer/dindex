@@ -67,6 +67,10 @@ pub struct Config {
   // In server: federated servers to forward queries to
   pub servers: Vec<Server>,
   
+  // Each entry is a complete fragment containing
+  // rhai code which binds to an internal API for events/formatting logic/whatever (TODO define better)
+  pub rhai_scripts: Vec<String>,
+  
   // Boolean flags to turn on/off tcp/udp/unix listeners (all default to true)
   pub server_listen_tcp: bool,
   pub server_listen_udp: bool,
@@ -245,6 +249,7 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
     client_use_sig: s_get_bool(be_verbose, &settings, "client_use_sig", false),
     verbosity_level: s_get_i64(be_verbose, &settings, "verbosity_level", args.verbose as i64) as u8,
     servers: s_get_server_vec(be_verbose, &settings, "servers"),
+    rhai_scripts: s_get_rhai_script_vec(be_verbose, &settings, "rhai_scripts"),
     server_port: s_get_i64(be_verbose, &settings, "server_port", DINDEX_DEF_PORT as i64) as u16,
     server_websocket_port: s_get_i64(be_verbose, &settings, "server_websocket_port", DINDEX_DEF_WEBSOCKET_PORT as i64) as u16,
     server_listen_tcp: s_get_bool(be_verbose, &settings, "server_listen_tcp", true),
@@ -337,6 +342,53 @@ fn s_get_server_vec(be_verbose :bool, settings: &config::Config, array_name: &st
     }
   }
   return servers;
+}
+
+fn s_get_rhai_script_vec(be_verbose :bool, settings: &config::Config, array_name: &str) -> Vec<String> {
+  let mut scripts = vec![];
+  match settings.get_array(array_name) {
+    Ok(vals) => {
+      for s_val in vals {
+        match s_val.into_table() {
+          Ok(val_map) => {
+            let file_s = v_get_str_of(be_verbose, &val_map, "file", "");
+            if file_s.len() > 1 {
+              // User specified "file", read it in
+              match std::fs::read_to_string(file_s) {
+                Ok(source_s) => {
+                  scripts.push(source_s);
+                }
+                Err(e) => {
+                  if be_verbose {
+                    println!("{}", e);
+                  }
+                }
+              }
+            }
+            else {
+              // Assume user specified "source"
+              let source_s = v_get_str_of(be_verbose, &val_map, "source", "");
+              if source_s.len() > 1 {
+                scripts.push(source_s);
+              }
+            }
+          }
+          Err(e) => {
+            if be_verbose {
+              println!("{}", e);
+            }
+          }
+        }
+      }
+    }
+    Err(e) => {
+      if be_verbose {
+        println!("{}", e);
+      }
+      scripts.push(include_str!("conf/rhai_defaults.rhai").to_string());
+    }
+  }
+  return scripts;
 }
 
 fn s_get_ctype_vec(be_verbose :bool, settings: &config::Config, array_name: &str) -> Vec<CType> {
