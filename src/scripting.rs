@@ -17,41 +17,28 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-pub mod config;
-pub mod args;
-pub mod record;
-pub mod actions;
-pub mod ext;
+use rhai::Engine;
 
-pub mod server;
-pub mod server_data_io;
+use crate::config::Config;
 
-pub mod client;
-pub mod http_client;
-pub mod data;
-pub mod wire;
-pub mod signing;
-pub mod disp;
-pub mod scripting;
+pub struct ScriptEngine {
+  pub rhai_engine: Engine,
+}
 
-pub mod web_scan;
-
-#[cfg(feature = "gui-client")]
-pub mod gui_client;
-
-
-
-#[macro_use]
-#[macro_export]
-macro_rules! h_map(
-    { $($key:expr => $value:expr),+ } => {
-        {
-            let mut m = ::std::collections::HashMap::new();
-            $(
-                m.insert($key, $value);
-            )+
-            m
-        }
-     };
-);
-
+impl ScriptEngine {
+  pub fn new() -> ScriptEngine {
+    let mut engine = Engine::new();
+    // Setup our API code
+    
+    return ScriptEngine {
+      rhai_engine: engine,
+    };
+  }
+  pub fn run_user_scripts(&mut self, config: &Config) {
+    for user_s in &config.rhai_scripts {
+      if let Err(e) = self.rhai_engine.eval::<()>(&user_s) {
+        println!("e = {}", e);
+      }
+    }
+  }
+}

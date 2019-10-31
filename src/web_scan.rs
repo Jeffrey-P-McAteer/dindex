@@ -75,7 +75,8 @@ fn urlentry_to_record(url: UrlEntry) -> Result<Record, ::std::io::Error> {
           "url".to_string() => url.to_string(),
           "title".to_string() => html.title.unwrap_or(url.to_string()),
           "description".to_string() => html.description.unwrap_or(String::new())
-        }
+        },
+        src_server: None,
       })
     }
     _ => Ok(Record::empty()) // TODO

@@ -24,16 +24,25 @@ use std::collections::HashMap;
 
 use crate::signing;
 use crate::config::Config;
+use crate::config::Server;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct Record {
   pub p: HashMap<String, String>,
+  
+  // This is used at run-time by clients to
+  // track where a record came from.
+  // It is not part of the wire protocol and may
+  // be considered an implementation detail.
+  #[serde(skip)]
+  pub src_server: Option<Server>
 }
 
 impl Record {
   pub fn empty() -> Record {
     Record {
-      p: HashMap::new()
+      p: HashMap::new(),
+      src_server: None
     }
   }
   pub fn is_empty(&self) -> bool {

@@ -251,23 +251,30 @@ pub fn query_sync(config: &Config, query: &Record) -> Vec<Record> {
 }
 
 pub fn query_server_sync(config: &Config, server: &Server, query: &Record) -> Vec<Record> {
-  match server.protocol {
+  let mut results = match server.protocol {
     ServerProtocol::TCP => {
-      return query_tcp_server_sync(config, server, query);
+      query_tcp_server_sync(config, server, query)
     }
     ServerProtocol::UDP => {
-      return query_udp_server_sync(config, server, query);
+      query_udp_server_sync(config, server, query)
     }
     ServerProtocol::UNIX => {
-      return query_unix_server_sync(config, server, query);
+      query_unix_server_sync(config, server, query)
     }
     ServerProtocol::WEBSOCKET => {
-      return query_websocket_server_sync(config, server, query);
+      query_websocket_server_sync(config, server, query)
     }
     ServerProtocol::MULTICAST => {
-      return query_udp_server_sync(config, server, query);
+      query_udp_server_sync(config, server, query)
     }
+  };
+  
+  // Now write record.src_server for all records
+  for i in 0..results.len() {
+    results[i].src_server = Some(server.clone());
   }
+  
+  return results;
 }
 
 pub fn query_tcp_server_sync(config: &Config, server: &Server, query: &Record) -> Vec<Record> {
