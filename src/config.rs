@@ -124,6 +124,7 @@ pub struct Server {
   // Defaults to true, useful to silence errors when your config has a server that is usually down
   pub report_connect_errors: bool,
   pub max_latency_ms: usize,
+  pub name: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -277,6 +278,7 @@ fn s_get_server_vec(be_verbose :bool, settings: &config::Config, array_name: &st
         match s_val.into_table() {
           Ok(val_map) => {
             let report_connect_errors = v_get_bool_of(be_verbose, &val_map, "report_connect_errors", true);
+            let name = v_get_str_of(be_verbose, &val_map, "name", "Unnamed");
             let uri_s = v_get_str_of(be_verbose, &val_map, "uri", "unix:///tmp/dindex.sock");
             if let Ok(uri) = Url::parse(&uri_s) {
               
@@ -297,6 +299,7 @@ fn s_get_server_vec(be_verbose :bool, settings: &config::Config, array_name: &st
                 port: uri.port().unwrap_or(def_port) as u16,
                 report_connect_errors: report_connect_errors,
                 max_latency_ms: v_get_i64_of(be_verbose, &val_map, "max_latency_ms", 600) as usize,
+                name: name,
               });
             }
           }
@@ -314,12 +317,22 @@ fn s_get_server_vec(be_verbose :bool, settings: &config::Config, array_name: &st
       }
       // This is the default record used if nothing is configured
       servers.push(Server {
-        protocol: ServerProtocol::TCP,
-        host: "dindex.jmcateer.pw".to_string(),
+        protocol: ServerProtocol::MULTICAST,
+        host: "239.255.29.224".to_string(),
         port: DINDEX_DEF_PORT,
         path: String::new(),
         report_connect_errors: true,
         max_latency_ms: 600,
+        name: "Default LAN Connection".to_string()
+      });
+      servers.push(Server {
+        protocol: ServerProtocol::TCP,
+        host: "127.0.0.1".to_string(),
+        port: DINDEX_DEF_PORT,
+        path: String::new(),
+        report_connect_errors: true,
+        max_latency_ms: 600,
+        name: "Default localhost TCP Connection".to_string()
       });
     }
   }
