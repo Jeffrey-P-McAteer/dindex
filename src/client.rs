@@ -81,6 +81,9 @@ pub fn publish_server_sync(config: &Config, server: &Server, rec: &Record) {
     ServerProtocol::WEBSOCKET => {
       publish_websocket_server_sync(config, server, rec);
     }
+    ServerProtocol::MULTICAST => {
+      publish_udp_server_sync(config, server, rec);
+    }
   }
 }
 
@@ -260,6 +263,9 @@ pub fn query_server_sync(config: &Config, server: &Server, query: &Record) -> Ve
     }
     ServerProtocol::WEBSOCKET => {
       return query_websocket_server_sync(config, server, query);
+    }
+    ServerProtocol::MULTICAST => {
+      return query_udp_server_sync(config, server, query);
     }
   }
 }
@@ -668,6 +674,9 @@ pub fn listen_server_sync<F: Fn(Record) -> ListenAction>(config: &Config, server
     }
     ServerProtocol::WEBSOCKET => {
       listen_websocket_server_sync(config, server, query, callback);
+    }
+    ServerProtocol::MULTICAST => {
+      listen_udp_server_sync(config, server, query, callback);
     }
   }
 }
