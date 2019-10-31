@@ -134,10 +134,14 @@ pub fn run_tcp_sync(config: &Config, data: &Data) {
   }
 }
 
+// We use a single UDP socket and if server_listen_multicast==true
+// that socket also joint server_multicast_group
 pub fn run_udp_sync(config: &Config, data: &Data) {
   use std::net::UdpSocket;
   use std::io::ErrorKind;
   use std::time::Duration;
+  use std::net::Ipv4Addr;
+  use std::net::Ipv6Addr;
   
   let ip_port = format!("{}:{}", config.server_ip, config.server_port);
   if !config.server_extra_quiet {
@@ -146,6 +150,27 @@ pub fn run_udp_sync(config: &Config, data: &Data) {
   
   match UdpSocket::bind(ip_port) {
     Ok(mut socket) => {
+      if config.server_listen_multicast {
+        println!("udp joining multicast {}", &config.server_multicast_group);
+        let is_v6 = config.server_multicast_group.contains(":");
+        if is_v6 {
+          if let Ok(server_multicast_group) = &config.server_multicast_group.parse() {
+            // TODO allow user config of ipv6 interface number?
+            if let Err(e) = socket.join_multicast_v6(server_multicast_group, 0) {
+              println!("Error joining multicast: {}", e);
+            }
+          }
+        }
+        else {
+          if let Ok(server_multicast_group) = &config.server_multicast_group.parse() {
+            if let Ok(server_ip) = &config.server_ip.parse() {
+              if let Err(e) = socket.join_multicast_v4(server_multicast_group, server_ip) {
+                println!("Error joining multicast: {}", e);
+              }
+            }
+          }
+        }
+      }
       
       if let Err(e) = socket.set_read_timeout(Some(Duration::from_millis(1024))) {
         println!("Error setting UDP read timeout: {}", e);

@@ -72,6 +72,7 @@ pub struct Config {
   pub server_listen_udp: bool,
   pub server_listen_unix: bool,
   pub server_listen_websocket: bool,
+  pub server_listen_multicast: bool,
   
   // Defaults to false, when set true server will not report
   // many useful messages. This is used to silence benchmark tests.
@@ -86,6 +87,7 @@ pub struct Config {
   pub server_websocket_port: u16,
   pub server_ip: String,
   pub server_unix_socket: String,
+  pub server_multicast_group: String,
   // If more than this many threads are currently active, we will
   // block incoming connections until the oldest fraction of threads complete.
   pub server_threads_in_flight: usize,
@@ -245,11 +247,13 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
     server_listen_udp: s_get_bool(be_verbose, &settings, "server_listen_udp", true),
     server_listen_unix: s_get_bool(be_verbose, &settings, "server_listen_unix", true),
     server_listen_websocket: s_get_bool(be_verbose, &settings, "server_listen_websocket", true),
+    server_listen_multicast: s_get_bool(be_verbose, &settings, "server_listen_multicast", true),
     server_extra_quiet: s_get_bool(be_verbose, &settings, "server_extra_quiet", false),
     server_max_listeners: s_get_i64(be_verbose, &settings, "server_max_listeners", 100) as usize,
     server_pid_file: s_get_str(be_verbose, &settings, "server_pid_file", "/tmp/dindex.pid"),
     server_ip: s_get_str(be_verbose, &settings, "server_ip", "0.0.0.0"),
     server_unix_socket: s_get_str(be_verbose, &settings, "server_unix_socket", "/tmp/dindex.sock"),
+    server_multicast_group: s_get_str(be_verbose, &settings, "server_multicast_group", "239.255.29.224"), // Last 2 bytes are 0x1de0 (same as port, attempt to l33t "index")
     server_threads_in_flight: s_get_i64(be_verbose, &settings, "server_threads_in_flight", 8) as usize,
     server_threads_in_flight_fraction: s_get_f64(be_verbose, &settings, "server_threads_in_flight_fraction", 0.25),
     server_datastore_uri: s_get_str(be_verbose, &settings, "server_datastore_uri", "file:///tmp/dindex_db.json"),
