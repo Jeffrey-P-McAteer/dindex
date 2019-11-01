@@ -267,8 +267,8 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
     server_threads_in_flight_fraction: s_get_f64(be_verbose, &settings, "server_threads_in_flight_fraction", 0.25),
     server_datastore_uri: s_get_str(be_verbose, &settings, "server_datastore_uri", "file:///tmp/dindex_db.json"),
     server_trusted_keys_file: s_get_str(be_verbose, &settings, "server_trusted_keys_file", "/tmp/dindex_trusted_keys"),
-    server_max_records: s_get_i64(be_verbose, &settings, "server_max_records", 8080) as usize,
-    server_max_unauth_websockets: s_get_i64(be_verbose, &settings, "server_max_unauth_websockets", 8080) as usize,
+    server_max_records: s_get_i64(be_verbose, &settings, "server_max_records", 4096) as usize,
+    server_max_unauth_websockets: s_get_i64(be_verbose, &settings, "server_max_unauth_websockets", 100) as usize,
     server_num_record_pools: s_get_i64(be_verbose, &settings, "server_num_record_pools", 8) as usize,
   };
 }

@@ -18,7 +18,7 @@
  */
 
 use cpython;
-use cpython::{PyResult, PyDict, PyLong, Python};
+use cpython::{PyResult, PyDict, PyLong, PyString, Python};
 
 use structopt::StructOpt;
 
@@ -31,6 +31,7 @@ use crate::client;
 use crate::actions;
 
 use crate::py_attr_map_dict;
+use crate::attr_from_py_dict;
 
 // add bindings to the generated python module
 // N.B: names: "libdindex" must be the name of the `.so` or `.pyd` file
@@ -60,6 +61,15 @@ impl cpython::ToPyObject for Args {
     py_attr_map_dict!(py, py_dict, "rec_args", self.rec_args.clone());
     
     return py_dict;
+  }
+}
+
+impl <'source> cpython::FromPyObject<'source> for actions::Action {
+  fn extract(py: Python, obj: &'source cpython::PyObject) -> PyResult<Self> {
+    let py_str: PyString = obj.extract(py)?;
+    return Ok(actions::action_from_str(
+      &py_str.to_string(py).unwrap_or(std::borrow::Cow::Borrowed(&String::new()))
+    ));
   }
 }
 
@@ -96,86 +106,12 @@ impl <'source> cpython::FromPyObject<'source> for Args {
   fn extract(py: Python, obj: &'source cpython::PyObject) -> PyResult<Self> {
     let py_dict: PyDict = obj.extract(py)?;
     
-    let config_file: Option<String>;
-    if let Some(f) = py_dict.get_item(py, "config_file") {
-      if let Ok(s) = f.extract(py) {
-        config_file = Some(s);
-      }
-      else {
-        config_file = None;
-      }
-    }
-    else {
-      config_file = None;
-    }
-    
-    let max_web_scan_depth: usize;
-    if let Some(d) = py_dict.get_item(py, "max_web_scan_depth") {
-      if let Ok(i) = d.extract(py) {
-        max_web_scan_depth = i;
-      }
-      else {
-        max_web_scan_depth = 12;
-      }
-    }
-    else {
-      max_web_scan_depth = 12;
-    }
-    
-    let verbose: u8;
-    if let Some(d) = py_dict.get_item(py, "verbose") {
-      if let Ok(i) = d.extract(py) {
-        verbose = i;
-      }
-      else {
-        verbose = 0;
-      }
-    }
-    else {
-      verbose = 0;
-    }
-    
-    let action: actions::Action;
-    if let Some(d) = py_dict.get_item(py, "action") {
-      if let Ok(s) = d.extract(py) {
-        let s: String = s;
-        action = actions::action_from_str(&s);
-      }
-      else {
-        action = actions::Action::no_action;
-      }
-    }
-    else {
-      action = actions::Action::no_action;
-    }
-    
-    let signed: bool;
-    if let Some(d) = py_dict.get_item(py, "signed") {
-      if let Ok(b) = d.extract(py) {
-        signed = b;
-      }
-      else {
-        signed = false;
-      }
-    }
-    else {
-      signed = false;
-    }
-    
-    let rec_args: Vec<String>;
-    if let Some(d) = py_dict.get_item(py, "rec_args") {
-      if let Ok(v) = d.extract(py) {
-        rec_args = v;
-      }
-      else {
-        rec_args = vec![];
-      }
-    }
-    else {
-      rec_args = vec![];
-    }
-    
-    // TODO we can probably macro-out the above logic, it's pretty regular
+    let config_file = attr_from_py_dict!(py, py_dict, "config_file", None, Option<String> );
+    let max_web_scan_depth = attr_from_py_dict!(py, py_dict, "max_web_scan_depth", 12, usize );
+    let verbose = attr_from_py_dict!(py, py_dict, "verbose", 0, u8 );
+    let action = attr_from_py_dict!(py, py_dict, "action", actions::Action::no_action, actions::Action );
+    let signed = attr_from_py_dict!(py, py_dict, "signed", false, bool );
+    let rec_args = attr_from_py_dict!(py, py_dict, "rec_args", vec![], Vec<String> );
     
     Ok(Args {
       config_file: config_file,
@@ -185,6 +121,54 @@ impl <'source> cpython::FromPyObject<'source> for Args {
       signed: signed,
       rec_args: rec_args,
     })
+  }
+}
+
+impl <'source> cpython::FromPyObject<'source> for config::CType {
+  fn extract(py: Python, obj: &'source cpython::PyObject) -> PyResult<Self> {
+    let py_dict: PyDict = obj.extract(py)?;
+    
+    let name = attr_from_py_dict!(py, py_dict, "name", "".to_string(), String );
+    let key_names = attr_from_py_dict!(py, py_dict, "key_names", vec![], Vec<String> );
+    
+    Ok(config::CType {
+      name: name,
+      key_names: key_names,
+    })
+  }
+}
+
+impl <'source> cpython::FromPyObject<'source> for config::Server {
+  fn extract(py: Python, obj: &'source cpython::PyObject) -> PyResult<Self> {
+    let py_dict: PyDict = obj.extract(py)?;
+    
+    let protocol = attr_from_py_dict!(py, py_dict, "protocol", config::ServerProtocol::TCP, config::ServerProtocol );
+    let host = attr_from_py_dict!(py, py_dict, "host", String::new(), String );
+    let port = attr_from_py_dict!(py, py_dict, "port", config::DINDEX_DEF_PORT as u16, u16 );
+    let path = attr_from_py_dict!(py, py_dict, "path", String::new(), String );
+    let report_connect_errors = attr_from_py_dict!(py, py_dict, "report_connect_errors", true, bool );
+    let max_latency_ms = attr_from_py_dict!(py, py_dict, "max_latency_ms", 600, usize );
+    let name = attr_from_py_dict!(py, py_dict, "name", String::new(), String );
+    
+    Ok(config::Server {
+      protocol: protocol,
+      host: host,
+      port: port,
+      path: path,
+      report_connect_errors: report_connect_errors,
+      max_latency_ms: max_latency_ms,
+      name: name,
+    })
+  }
+}
+
+impl <'source> cpython::FromPyObject<'source> for config::ServerProtocol {
+  fn extract(py: Python, obj: &'source cpython::PyObject) -> PyResult<Self> {
+    let py_str: PyString = obj.extract(py)?;
+    Ok(config::ServerProtocol::from_str(
+      // f---- off type system and gimme a string
+      format!("{}", py_str.to_string(py).unwrap_or(std::borrow::Cow::Borrowed(&String::new())))
+    ))
   }
 }
 
@@ -229,6 +213,108 @@ impl cpython::ToPyObject for config::Config {
   }
 }
 
+impl <'source> cpython::FromPyObject<'source> for config::Config {
+  fn extract(py: Python, obj: &'source cpython::PyObject) -> PyResult<Self> {
+    let py_dict: PyDict = obj.extract(py)?;
+    
+    let ctypes = 
+      attr_from_py_dict!(py, py_dict, "ctypes", vec![], Vec<config::CType>);
+    let client_private_key_file = 
+      attr_from_py_dict!(py, py_dict, "client_private_key_file", String::new(), String);
+    let client_enable_http_ui = 
+      attr_from_py_dict!(py, py_dict, "client_enable_http_ui", false, bool);
+    let client_http_port = 
+      attr_from_py_dict!(py, py_dict, "client_http_port", 8080, u16);
+    let client_http_websocket_port = 
+      attr_from_py_dict!(py, py_dict, "client_http_websocket_port", 8081, u16);
+    let client_http_custom_js = 
+      attr_from_py_dict!(py, py_dict, "client_http_custom_js", include_str!("http/example_custom_js.js").to_string(), String);
+    let client_http_custom_css = 
+      attr_from_py_dict!(py, py_dict, "client_http_custom_css", include_str!("http/example_custom_css.css").to_string(), String);
+    let client_use_sig = 
+      attr_from_py_dict!(py, py_dict, "client_use_sig", false, bool);
+    let verbosity_level = 
+      attr_from_py_dict!(py, py_dict, "verbosity_level", 0, u8);
+    let servers = 
+      attr_from_py_dict!(py, py_dict, "servers", vec![], Vec<config::Server>);
+    let rhai_scripts = 
+      attr_from_py_dict!(py, py_dict, "rhai_scripts", vec![], Vec<String>);
+    let server_listen_tcp = 
+      attr_from_py_dict!(py, py_dict, "server_listen_tcp", true, bool);
+    let server_listen_udp = 
+      attr_from_py_dict!(py, py_dict, "server_listen_udp", true, bool);
+    let server_listen_unix = 
+      attr_from_py_dict!(py, py_dict, "server_listen_unix", true, bool);
+    let server_listen_websocket = 
+      attr_from_py_dict!(py, py_dict, "server_listen_websocket", true, bool);
+    let server_listen_multicast = 
+      attr_from_py_dict!(py, py_dict, "server_listen_multicast", true, bool);
+    let server_extra_quiet = 
+      attr_from_py_dict!(py, py_dict, "server_extra_quiet", false, bool);
+    let server_max_listeners = 
+      attr_from_py_dict!(py, py_dict, "server_max_listeners", 100, usize);
+    let server_pid_file = 
+      attr_from_py_dict!(py, py_dict, "server_pid_file", "/tmp/dindex.pid".to_string(), String);
+    let server_port = 
+      attr_from_py_dict!(py, py_dict, "server_port", config::DINDEX_DEF_PORT, u16);
+    let server_websocket_port = 
+      attr_from_py_dict!(py, py_dict, "server_websocket_port", config::DINDEX_DEF_WEBSOCKET_PORT, u16);
+    let server_ip = 
+      attr_from_py_dict!(py, py_dict, "server_ip", "0.0.0.0".to_string(), String);
+    let server_unix_socket = 
+      attr_from_py_dict!(py, py_dict, "server_unix_socket", "/tmp/dindex.sock".to_string(), String);
+    let server_multicast_group = 
+      attr_from_py_dict!(py, py_dict, "server_multicast_group", "239.255.29.224".to_string(), String);
+    let server_threads_in_flight = 
+      attr_from_py_dict!(py, py_dict, "server_threads_in_flight", 8, usize);
+    let server_threads_in_flight_fraction = 
+      attr_from_py_dict!(py, py_dict, "server_threads_in_flight_fraction", 0.25, f64);
+    let server_datastore_uri = 
+      attr_from_py_dict!(py, py_dict, "server_datastore_uri", "file:///tmp/dindex_db.json".to_string(), String);
+    let server_trusted_keys_file = 
+      attr_from_py_dict!(py, py_dict, "server_trusted_keys_file", "/tmp/dindex_trusted_keys".to_string(), String);
+    let server_max_records = 
+      attr_from_py_dict!(py, py_dict, "server_max_records", 4096, usize);
+    let server_max_unauth_websockets = 
+      attr_from_py_dict!(py, py_dict, "server_max_unauth_websockets", 100, usize);
+    let server_num_record_pools = 
+      attr_from_py_dict!(py, py_dict, "server_num_record_pools", 8, usize);
+    
+    Ok(config::Config {
+      ctypes: ctypes,
+      client_private_key_file: client_private_key_file,
+      client_enable_http_ui: client_enable_http_ui,
+      client_http_port: client_http_port,
+      client_http_websocket_port: client_http_websocket_port,
+      client_http_custom_js: client_http_custom_js,
+      client_http_custom_css: client_http_custom_css,
+      client_use_sig: client_use_sig,
+      verbosity_level: verbosity_level,
+      servers: servers,
+      rhai_scripts: rhai_scripts,
+      server_listen_tcp: server_listen_tcp,
+      server_listen_udp: server_listen_udp,
+      server_listen_unix: server_listen_unix,
+      server_listen_websocket: server_listen_websocket,
+      server_listen_multicast: server_listen_multicast,
+      server_extra_quiet: server_extra_quiet,
+      server_max_listeners: server_max_listeners,
+      server_pid_file: server_pid_file,
+      server_port: server_port,
+      server_websocket_port: server_websocket_port,
+      server_ip: server_ip,
+      server_unix_socket: server_unix_socket,
+      server_multicast_group: server_multicast_group,
+      server_threads_in_flight: server_threads_in_flight,
+      server_threads_in_flight_fraction: server_threads_in_flight_fraction,
+      server_datastore_uri: server_datastore_uri,
+      server_trusted_keys_file: server_trusted_keys_file,
+      server_max_records: server_max_records,
+      server_max_unauth_websockets: server_max_unauth_websockets,
+      server_num_record_pools: server_num_record_pools,
+    })
+  }
+}
 
 /*
  * Functions similar to those found in ext.rs

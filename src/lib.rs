@@ -44,7 +44,6 @@ pub mod gui_client;
 #[macro_use]
 extern crate cpython;
 
-#[macro_use]
 #[macro_export]
 macro_rules! h_map(
     { $($key:expr => $value:expr),+ } => {
@@ -58,7 +57,6 @@ macro_rules! h_map(
      };
 );
 
-#[macro_use]
 #[macro_export]
 macro_rules! py_attr_map_dict(
     ($py:expr, $py_dict:expr, $param_name:expr, $param_val:expr) => {
@@ -66,6 +64,27 @@ macro_rules! py_attr_map_dict(
             if let Err(e) = $py_dict.set_item($py, $param_name, $param_val) {
               println!("[ dindex error ] {:?}", e);
             }
+        }
+     };
+);
+
+#[macro_export]
+macro_rules! attr_from_py_dict(
+    ($py:expr, $py_dict:expr, $attr_name_s:expr, $def_attr_val:expr, $attr_type:ty) => {
+        {
+            let attr_capture: $attr_type;
+            if let Some(py_val) = $py_dict.get_item($py, $attr_name_s) {
+              if let Ok(rust_val) = py_val.extract($py) {
+                attr_capture = rust_val;
+              }
+              else {
+                attr_capture = $def_attr_val;
+              }
+            }
+            else {
+              attr_capture = $def_attr_val;
+            }
+            attr_capture
         }
      };
 );
