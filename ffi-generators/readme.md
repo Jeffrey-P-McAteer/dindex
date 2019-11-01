@@ -31,10 +31,16 @@ Do I have to?
 
 # Python
 
-Requires 
+Requires `python3` and python dev packages for your OS.
 
 ```
+./ffi-generators/gen-py.sh
+```
 
+Example:
+
+```
+(cd ffi-py ; python3 example01.py )
 ```
 
 

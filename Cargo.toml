@@ -11,7 +11,7 @@ crate-type = ["rlib", "dylib", "staticlib"]
 [features]
 # To compile a binary which includes the GUI client run:
 # cargo build --release --features "gui-client"
-gui-client = []
+gui-client = ["web-view"]
 
 # By default we have no gui client (it's expensive to build and mostly unecessary)
 default = []
@@ -65,14 +65,11 @@ num_cpus = "1.10.1"
 url-crawler = "0.3.0"
 webpage = "1.0.0"
 
-web-view = { git = "https://github.com/Jeffrey-P-McAteer/web-view.git" }
+web-view = { git = "https://github.com/Jeffrey-P-McAteer/web-view.git", optional = true }
 #web-view = "0.5.2"
 
 fork = "0.1.8"
 nix = "0.15.0"
-
-# Used for C bindings
-libc = "0.2"
 
 # Used to let users inject new functionality via scripts
 rhai = "0.9.1"
@@ -80,4 +77,11 @@ rhai = "0.9.1"
 # Performance testing
 bencher = "0.1.5"
 rand = "0.7.2"
+
+# Used for C bindings
+libc = "0.2"
+
+[dependencies.cpython]
+version = "0.2"
+features = ["extension-module"]
 

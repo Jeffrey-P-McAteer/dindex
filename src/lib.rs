@@ -21,7 +21,9 @@ pub mod config;
 pub mod args;
 pub mod record;
 pub mod actions;
+
 pub mod ext;
+pub mod ext_py;
 
 pub mod server;
 pub mod server_data_io;
@@ -39,7 +41,8 @@ pub mod web_scan;
 #[cfg(feature = "gui-client")]
 pub mod gui_client;
 
-
+#[macro_use]
+extern crate cpython;
 
 #[macro_use]
 #[macro_export]
