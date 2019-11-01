@@ -53,3 +53,22 @@ arg_enum! {
       no_action // This is only used for testing and indicates lack of any action to be taken
   }
 }
+
+pub fn action_from_str(s: &str) -> Action {
+  match s {
+    "query" => Action::query,
+    "publish" => Action::publish,
+    "listen" => Action::listen,
+    "result" => Action::result,
+    "end_of_results" => Action::end_of_results,
+    "run_server" => Action::run_server,
+    "double_fork_server" => Action::double_fork_server,
+    "run_http_client" => Action::run_http_client,
+    "run_gui_client" => Action::run_gui_client,
+    "run_web_scan" => Action::run_web_scan,
+    "gen_identity" => Action::gen_identity,
+    "print_identity" => Action::print_identity,
+    "query" => Action::query,
+    _ => Action::no_action,
+  }
+}

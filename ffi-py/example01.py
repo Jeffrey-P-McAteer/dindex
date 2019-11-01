@@ -11,5 +11,3 @@ import libdindex as dindex
 
 print(dindex.config())
 
-print(dindex.args())
-
