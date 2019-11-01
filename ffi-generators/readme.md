@@ -17,6 +17,12 @@ Requires `cargo` and `cbindgen`.
 ./ffi-generators/gen-c.sh
 ```
 
+Running examples using the generated bindings:
+
+```
+(cd ffi-c ; make bin/example01 && ./bin/example01 )
+```
+
 # C++
 
 Do I have to?

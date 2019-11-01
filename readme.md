@@ -13,21 +13,9 @@ One simplification is moving from a multi-binary structure to a single-binary.
 The other is a focus on GUI components earlier in the dev process (see `http_client.rs`),
 which I expect will make testing easier.
 
-# FFI Headers
+# FFI 
 
-FFI C headers may be generated using `cbindgen`:
-
-```
-cbindgen --config cbindgen.toml --crate dindex --output target/ffi-include/dindex.h
-```
-
-Shared and static libraries are generated with `cargo build` under `target/`.
-
-# FFI Examples
-
-```
-(cd ffi-c ; make bin/example01 && ./bin/example01 )
-```
+See `ffi-generators/readme.md`
 
 # Dependencies
 
