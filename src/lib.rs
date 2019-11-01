@@ -58,3 +58,15 @@ macro_rules! h_map(
      };
 );
 
+#[macro_use]
+#[macro_export]
+macro_rules! py_attr_map_dict(
+    ($py:expr, $py_dict:expr, $param_name:expr, $param_val:expr) => {
+        {
+            if let Err(e) = $py_dict.set_item($py, $param_name, $param_val) {
+              println!("[ dindex error ] {:?}", e);
+            }
+        }
+     };
+);
+

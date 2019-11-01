@@ -29,6 +29,8 @@ use crate::args::Args;
 use crate::disp;
 use crate::client;
 
+use crate::py_attr_map_dict;
+
 // add bindings to the generated python module
 // N.B: names: "libdindex" must be the name of the `.so` or `.pyd` file
 py_module_initializer!(libdindex, initlibdindex, PyInit_libdindex, |py, m| {
@@ -48,12 +50,14 @@ impl cpython::ToPyObject for Args {
   type ObjectType = PyDict;
   fn to_py_object(&self, py: Python) -> Self::ObjectType {
     let mut py_dict: PyDict = PyDict::new(py);
-    py_dict.set_item(py, "config_file", self.config_file.clone());
-    py_dict.set_item(py, "max_web_scan_depth", self.max_web_scan_depth);
-    py_dict.set_item(py, "verbose", self.verbose);
-    py_dict.set_item(py, "action", format!("{}", self.action));
-    py_dict.set_item(py, "signed", self.signed);
-    py_dict.set_item(py, "rec_args", self.rec_args.clone());
+    
+    py_attr_map_dict!(py, py_dict, "config_file", self.config_file.clone());
+    py_attr_map_dict!(py, py_dict, "max_web_scan_depth", self.max_web_scan_depth);
+    py_attr_map_dict!(py, py_dict, "verbose", self.verbose);
+    py_attr_map_dict!(py, py_dict, "action", format!("{}", self.action));
+    py_attr_map_dict!(py, py_dict, "signed", self.signed);
+    py_attr_map_dict!(py, py_dict, "rec_args", self.rec_args.clone());
+    
     return py_dict;
   }
 }
