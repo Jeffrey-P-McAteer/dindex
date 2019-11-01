@@ -16,6 +16,8 @@ _A short list of the next things being targeted for implementation_
    This feature would let you drop a SETUID binary in ~/public_html/
    and have it serve + receive records
 
+ - Improve client customization with `rhai` scripts injected into processing
+
  - Implement SQL record storage backend? (low priority, lame + boring)
 
  - Fix various UDP inconsistencies (listening looks a bit broken)
