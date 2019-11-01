@@ -22,6 +22,8 @@ use cpython::{PyResult, PyDict, PyLong, PyString, Python};
 
 use structopt::StructOpt;
 
+use std::collections::HashMap;
+
 use crate::record::Record;
 use crate::config;
 use crate::config::Config;
@@ -39,8 +41,18 @@ py_module_initializer!(libdindex, initlibdindex, PyInit_libdindex, |py, m| {
   m.add(py, "__doc__", r#"
 dIndex python bindings.
 "#)?;
-  m.add(py, "args", py_fn!(py, get_args()))?;
-  m.add(py, "config", py_fn!(py, get_config(args: Option<Args> = None)))?;
+  m.add(py, "args",
+    py_fn!(py, get_args()))?;
+  m.add(py, "config",
+    py_fn!(py, get_config(args: Option<Args> = None)))?;
+  m.add(py, "record",
+    py_fn!(py, get_record(record: Record = Record::empty() ) ))?;
+  m.add(py, "record_display",
+    py_fn!(py, record_display(config: Config, record: Record = Record::empty() ) ))?;
+  m.add(py, "record_display_vec",
+    py_fn!(py, record_display_vec(config: Config, record: Vec<Record> = vec![] ) ))?;
+  m.add(py, "client_query_sync",
+    py_fn!(py, client_query_sync(config: Config, record: Record = Record::empty() ) ))?;
   Ok(())
 });
 
@@ -70,6 +82,43 @@ impl <'source> cpython::FromPyObject<'source> for actions::Action {
     return Ok(actions::action_from_str(
       &py_str.to_string(py).unwrap_or(std::borrow::Cow::Borrowed(&String::new()))
     ));
+  }
+}
+
+impl <'source> cpython::FromPyObject<'source> for Record {
+  fn extract(py: Python, obj: &'source cpython::PyObject) -> PyResult<Self> {
+    let py_dict: PyDict = obj.extract(py)?;
+    let mut map = HashMap::new();
+    
+    for (key, val) in py_dict.items(py) {
+      if let Ok(key) = key.extract(py) {
+        let key: String = key;
+        if let Ok(val) = val.extract(py) {
+          let val: String = val;
+          map.insert(key, val);
+        }
+      }
+    }
+    
+    return Ok(Record {
+      p: map,
+      src_server: None,
+    });
+  }
+}
+
+impl cpython::ToPyObject for Record {
+  type ObjectType = PyDict;
+  fn to_py_object(&self, py: Python) -> Self::ObjectType {
+    let py_dict: PyDict = PyDict::new(py);
+
+    for (key, val) in &self.p {
+      if let Err(e) = py_dict.set_item(py, key, val) {
+        println!("e = {:?}", e);
+      }
+    }
+
+    return py_dict;
   }
 }
 
@@ -344,3 +393,23 @@ fn get_config(_: Python, given_args: Option<Args>) -> PyResult<config::Config> {
   }
 }
 
+// This _should_ just handle allocation, but our default argument makes
+// it very ergonomic to use in python AND we don't have to detect None!
+fn get_record(_: Python, rec: Record) -> PyResult<Record> {
+  Ok(rec)
+}
+
+fn record_display(py: Python, config: Config, rec: Record) -> PyResult<cpython::PyObject> {
+  disp::print_results_ref(&config, &vec![&rec]);
+  Ok(py.None())
+}
+
+fn record_display_vec(py: Python, config: Config, rec: Vec<Record>) -> PyResult<cpython::PyObject> {
+  disp::print_results(&config, &rec);
+  Ok(py.None())
+}
+
+fn client_query_sync(_py: Python, config: Config, rec: Record) -> PyResult<Vec<Record>> {
+  let results = client::query_sync(&config, &rec);
+  Ok(results)
+}

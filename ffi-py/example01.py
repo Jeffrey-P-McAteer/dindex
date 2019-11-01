@@ -9,5 +9,21 @@ sys.path.append(os.path.abspath("../target/release/"))
 
 import libdindex as dindex
 
-print(dindex.config())
+config = dindex.config()
+print(config)
+
+query = dindex.record({
+  "url": ".*example.*"
+})
+print(query)
+
+print("dIndex query record:")
+dindex.record_display(config, query)
+
+results = dindex.client_query_sync(config, query)
+
+print("Python received {} results".format(len(results)))
+
+print("dIndex query results:")
+dindex.record_display_vec(config, results)
 
