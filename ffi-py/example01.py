@@ -9,5 +9,7 @@ sys.path.append(os.path.abspath("../target/release/"))
 
 import libdindex as dindex
 
-print(dindex.sum_as_string(2, 4))
+print(dindex.config())
+
+print(dindex.args())
 

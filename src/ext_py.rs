@@ -17,16 +17,17 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-use cpython::{PyResult, Python};
+use cpython;
+use cpython::{PyResult, PyDict, Python};
 
-// use structopt::StructOpt;
+use structopt::StructOpt;
 
-// use crate::record::Record;
-// use crate::config;
-// use crate::config::Config;
-// use crate::args::Args;
-// use crate::disp;
-// use crate::client;
+use crate::record::Record;
+use crate::config;
+use crate::config::Config;
+use crate::args::Args;
+use crate::disp;
+use crate::client;
 
 // add bindings to the generated python module
 // N.B: names: "libdindex" must be the name of the `.so` or `.pyd` file
@@ -34,16 +35,70 @@ py_module_initializer!(libdindex, initlibdindex, PyInit_libdindex, |py, m| {
   m.add(py, "__doc__", r#"
 dIndex python bindings.
 "#)?;
-  m.add(py, "sum_as_string", py_fn!(py, sum_as_string_py(a: i64, b:i64)))?;
+  m.add(py, "args", py_fn!(py, get_args()))?;
+  m.add(py, "config", py_fn!(py, get_config(args: Option<Args> = None)))?;
   Ok(())
 });
 
-// rust-cpython aware function. All of our python interface could be
-// declared in a separate module.
-// Note that the py_fn!() macro automatically converts the arguments from
-// Python objects to Rust values; and the Rust return value back into a Python object.
-fn sum_as_string_py(_: Python, a:i64, b:i64) -> PyResult<String> {
-  let out = format!("{}", a + b).to_string();
-  Ok(out)
+/*
+ * Useful/Required implementations of dindex structures into/out of python objects
+ */
+
+impl cpython::ToPyObject for Args {
+  type ObjectType = PyDict;
+  fn to_py_object(&self, py: Python) -> Self::ObjectType {
+    let mut py_dict: PyDict = PyDict::new(py);
+    py_dict.set_item(py, "config_file", self.config_file.clone());
+    py_dict.set_item(py, "max_web_scan_depth", self.max_web_scan_depth);
+    py_dict.set_item(py, "verbose", self.verbose);
+    py_dict.set_item(py, "action", format!("{}", self.action));
+    py_dict.set_item(py, "signed", self.signed);
+    py_dict.set_item(py, "rec_args", self.rec_args.clone());
+    return py_dict;
+  }
+}
+
+impl <'source> cpython::FromPyObject<'source> for Args {
+  fn extract(py: Python, obj: &'source cpython::PyObject) -> PyResult<Self> {
+    //let obj: cpython::PyObject = (*obj).clone();
+    let py_dict: PyDict = obj.extract(py)?;
+    std::unimplemented!()
+  }
+}
+
+impl cpython::ToPyObject for config::Config {
+  type ObjectType = PyDict;
+  fn to_py_object(&self, _py: Python) -> Self::ObjectType {
+    std::unimplemented!()
+  }
+}
+
+
+/*
+ * Functions similar to those found in ext.rs
+ * but tailored for idiomatic python use.
+ */
+
+fn get_args(_: Python) -> PyResult<Args> {
+  Ok( Args::from_args() )
+}
+
+fn get_config(_: Python, given_args: Option<Args>) -> PyResult<config::Config> {
+  if let Some(given_args) = given_args {
+    Ok(config::read_config( &given_args ))
+  }
+  else {
+    // default structopt calls exit() if bad args so we create empty args
+    // if the given action is bad
+    let a = Args::from_iter_safe( std::env::args() );
+    match a {
+      Ok(a) => {
+        Ok(config::read_config( &a ))
+      }
+      Err(_e) => {
+        Ok(config::read_config( &Args::empty() ))
+      }
+    }
+  }
 }
 

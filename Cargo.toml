@@ -81,7 +81,8 @@ rand = "0.7.2"
 # Used for C bindings
 libc = "0.2"
 
+# Used for python bindings; TODO put behind feature gate?
 [dependencies.cpython]
-version = "0.2"
+version = "0.3"
 features = ["extension-module"]
 
