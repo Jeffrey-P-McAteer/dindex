@@ -1,6 +1,6 @@
 
 # Libraries we need to link against to use libdindex
-lib_deps = pthread curl dl m
+lib_deps = pthread curl dl m ssl crypto
 
 lib_gcc_args=$(patsubst %, -l%, $(lib_deps))
 
