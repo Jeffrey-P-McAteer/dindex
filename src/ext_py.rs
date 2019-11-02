@@ -53,6 +53,8 @@ dIndex python bindings.
     py_fn!(py, record_display_vec(config: Config, record: Vec<Record> = vec![] ) ))?;
   m.add(py, "client_query_sync",
     py_fn!(py, client_query_sync(config: Config, record: Record = Record::empty() ) ))?;
+  m.add(py, "client_publish_sync",
+    py_fn!(py, client_publish_sync(config: Config, record: Record = Record::empty() ) ))?;
   m.add(py, "client_listen_sync",
     py_fn!(py, client_listen_sync(config: Config, record: Record = Record::empty(), callback: PyObject ) ))?;
   Ok(())
@@ -414,6 +416,11 @@ fn record_display_vec(py: Python, config: Config, rec: Vec<Record>) -> PyResult<
 fn client_query_sync(_py: Python, config: Config, rec: Record) -> PyResult<Vec<Record>> {
   let results = client::query_sync(&config, &rec);
   Ok(results)
+}
+
+fn client_publish_sync(py: Python, config: Config, rec: Record) -> PyResult<cpython::PyObject> {
+  client::publish_sync(&config, &rec);
+  Ok(py.None())
 }
 
 fn client_listen_sync(py: Python, config: Config, rec: Record, callback: PyObject) -> PyResult<cpython::PyObject> {
