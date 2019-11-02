@@ -1,0 +1,23 @@
+<!doctype html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="user_style.css">
+    <title>dindex</title>
+  </head>
+  <body>
+    <h2>dIndex CGI Server</h2>
+    <p>This URL points to a dIndex binary running as a CGI program.</p>
+    <p>Make a POST request to this URL with a JSON payload and set the HTTP header X-DINDEX-ACTION to specify query/post actions. (documentation may be found at <a href="https://github.com/Jeffrey-P-McAteer/dindex">https://github.com/Jeffrey-P-McAteer/dindex</a>)</p>
+    <pre>
+$ curl -d '{"url":".*wikipedia.org.*"}' -H 'X-DINDEX-ACTION: query' -X POST http://127.0.0.1:8000/cgi-bin/index.cgi
+
+{"url":"https://www.wikipedia.org/", "title": "Wikipedia", "description": "The Free Encyclopedia"}
+{"url":"https://en.wikipedia.org/wiki/Main_Page", "title": "Wikipedia, The Free Encyclopedia", "description": "the free encyclopedia that anyone can edit.\n5,963,390 articles in English"}
+
+    </pre>
+  </body>
+</html>

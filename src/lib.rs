@@ -23,7 +23,7 @@ pub mod record;
 pub mod actions;
 
 pub mod ext;
-pub mod ext_py;
+pub mod ext_py; // TODO measure binary increase and feature-gate (default to enabled)
 
 pub mod server;
 pub mod server_data_io;
@@ -36,7 +36,9 @@ pub mod signing;
 pub mod disp;
 pub mod scripting;
 
-pub mod web_scan;
+pub mod web_scan; // TODO feature-gate (default to enabled)
+
+pub mod cgi_server; // TODO feature-gate (default to enabled)
 
 #[cfg(feature = "gui-client")]
 pub mod gui_client;

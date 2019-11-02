@@ -41,10 +41,17 @@ use dindex::signing;
 
 use dindex::web_scan;
 
+use dindex::cgi_server;
+
 #[cfg(feature = "gui-client")]
 use dindex::gui_client;
 
 fn main() {
+  if cgi_server::should_perform_cgi() {
+    cgi_server::perform_cgi();
+    return;
+  }
+  
   let args = args::Args::from_args();
   let conf = config::read_config(&args);
   
