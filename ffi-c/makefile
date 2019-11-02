@@ -24,6 +24,16 @@ bin/example02: makefile example02.c ../target/ffi-include/dindex.h
 		../target/release/libdindex.a \
 		-o bin/example02
 
+bin/example03: makefile example03.c ../target/ffi-include/dindex.h
+	mkdir -p bin
+	gcc \
+		-Wall \
+		-I../target/ffi-include/ \
+		example03.c \
+		$(lib_gcc_args) \
+		../target/release/libdindex.a \
+		-o bin/example03
+
 ../target/ffi-include/dindex.h:
 	test -s ../target/ffi-include/dindex.h || { echo "Please build dindex.h by running 'cbindgen --config cbindgen.toml --crate dindex --output target/ffi-include/dindex.h'" ; exit 1; }
 

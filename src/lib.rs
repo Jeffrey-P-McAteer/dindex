@@ -23,6 +23,8 @@ pub mod record;
 pub mod actions;
 
 pub mod ext;
+
+#[cfg(feature = "python-bindings")]
 pub mod ext_py;
 
 pub mod server;
@@ -41,6 +43,7 @@ pub mod web_scan;
 #[cfg(feature = "gui-client")]
 pub mod gui_client;
 
+#[cfg(feature = "python-bindings")]
 #[macro_use]
 extern crate cpython;
 

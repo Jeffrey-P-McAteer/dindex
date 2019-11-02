@@ -12,6 +12,9 @@ crate-type = ["rlib", "dylib", "staticlib"]
 # To compile a binary which includes the GUI client run:
 # cargo build --release --features "gui-client"
 gui-client = ["web-view"]
+# To compile a .so which can be imported from python with "import libdindex as dindex" run:
+# cargo build --release --features "python-bindings"
+python-bindings = ["cpython"]
 
 # By default we have no gui client (it's expensive to build and mostly unecessary)
 default = []
@@ -81,8 +84,10 @@ rand = "0.7.2"
 # Used for C bindings
 libc = "0.2"
 
-# Used for python bindings; TODO put behind feature gate?
+# Used for python bindings
 [dependencies.cpython]
 version = "0.3"
 features = ["extension-module"]
+optional = true
+
 

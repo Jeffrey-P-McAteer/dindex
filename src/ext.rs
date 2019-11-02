@@ -152,6 +152,18 @@ pub extern fn dindex_client_query_sync(config: *mut Config, rec_ptr: *mut Record
   }
 }
 
+#[no_mangle]
+pub extern fn dindex_client_publish_sync(config: *mut Config, rec_ptr: *mut Record) {
+  if config.is_null() || rec_ptr.is_null() {
+    return;
+  }
+  else {
+    unsafe {
+      client::publish_sync(&(*config), &(*rec_ptr));
+    }
+  }
+}
+
 // Return should map to a ListenAction
 type ListenCallback = extern "C" fn(*mut Record) -> *const c_char;
 

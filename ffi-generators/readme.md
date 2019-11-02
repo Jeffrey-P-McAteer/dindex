@@ -23,6 +23,9 @@ Running examples using the generated bindings:
 (cd ffi-c ; make bin/example01 && ./bin/example01 )
 ```
 
+**NB**: if the shared library is compiled with `--features "python-bindings"` your
+C program must link to the python library. The example code does not do this.
+
 # C++
 
 Do I have to?
@@ -43,4 +46,7 @@ Example:
 (cd ffi-py ; python3 example01.py )
 ```
 
+**NB**: By default dIndex does not build with python library symbols.
+To compile `libdindex.so` with python bindings run
+`cargo build --release --features "python-bindings"`
 
