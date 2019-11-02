@@ -31,6 +31,7 @@ fn sign_records() {
   );
   test_config.client_use_sig = true;
   test_config.client_private_key_file = test_identity_f.to_string();
+  test_config.server_extra_quiet = true;
   
   let mut random_record = gen_rand_record();
   
@@ -205,6 +206,7 @@ fn junk_input_tests() {
   );
   test_config.client_use_sig = true;
   test_config.client_private_key_file = test_identity_f.to_string();
+  test_config.server_extra_quiet = true;
   
   for _ in 0..1000 {
     let mut junk_data = gen_rand_junk_record();

@@ -40,6 +40,7 @@ fn tcp_server_store_retrieve() {
     path: "/tmp/dindex.test.socket".to_string(),
     max_latency_ms: 250,
     report_connect_errors: true,
+    name: "Localhost Server".to_string()
   };
   test_config.servers = vec![localhost_server];
   test_config.server_port = port;

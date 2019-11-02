@@ -36,6 +36,8 @@ use crate::actions::Action;
 
 use crate::server_data_io::*;
 
+use crate::h_map;
+
 pub fn run_sync(config: &Config) {
   // Write PID to config.server_pid_file
   let our_pid_s = format!("{}", process::id());
@@ -713,12 +715,24 @@ fn handle_conn(from_client: mpsc::Receiver<WireData>, to_client: mpsc::Sender<Wi
       println!("Error receiving in handle_conn: {}", e);
     }
     Ok(wire_data) => {
-      if config.is_debug() {
-        if !config.server_extra_quiet {
-          println!("got connection, wire_data={:?}", wire_data);
-          println!("record.is_signed() = {}", wire_data.record.is_signed());
-          println!("record.is_auth_by_server() = {}", wire_data.record.is_auth_by_server(config));
+      // Reject all queries and published records
+      // if the record appears signed (contains pub key || signature)
+      // but the signature is invalid.
+      if wire_data.record.is_imposter() {
+        // We _ought_ to at least let the user know.
+        // This gives visibility in the scenario where a valid user
+        // does not understand their tools.
+        let err_data = WireData {
+          action: Action::unsolicited_msg,
+          record: Record::new(h_map!{
+            "error-message".to_string() =>
+              "Error: The record received has signature keys but contains an invalid signature.".to_string()
+          }),
+        };
+        if let Err(e) = to_client.send(err_data) {
+          println!("e = {}", e);
         }
+        return;
       }
       let ts_to_client = Arc::new(Mutex::new(to_client.clone()));
       match wire_data.action {

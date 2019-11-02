@@ -45,8 +45,24 @@ impl Record {
       src_server: None
     }
   }
+  pub fn new(properties: HashMap<String, String>) -> Record {
+    Record {
+      p: properties,
+      src_server: None
+    }
+  }
   pub fn is_empty(&self) -> bool {
     self.p.is_empty()
+  }
+  // Convenience function to determine if a record LOOKS signed
+  // but the actual signature is invalid.
+  // Returns false if the record does not use any signature,
+  // returns true if record uses signature fields but values are invalid.
+  pub fn is_imposter(&self) -> bool {
+    return self.has_sig_fields() && !self.is_signed();
+  }
+  pub fn has_sig_fields(&self) -> bool {
+    signing::has_sig_fields(self)
   }
   pub fn is_signed(&self) -> bool {
     signing::is_valid_sig(self)

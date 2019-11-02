@@ -38,6 +38,10 @@ arg_enum! {
       // Generally sent server -> client
       result = 3,
       end_of_results = 4,
+      // Currently only used for error reporting to clients.
+      // This should be used sparingly and only in edge cases where giving
+      // the client data it did not ask for is a reasonable action.
+      unsolicited_msg = 5,
       
       // The remaining arguments are NOT designed to be sent over the wire,
       // but instead are used by the CLI tool.

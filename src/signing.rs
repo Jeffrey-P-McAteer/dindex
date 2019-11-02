@@ -36,8 +36,6 @@ use crate::record::Record;
 pub const signing_pub_key_key: &str = "SIGNING:public-key";
 // Reserved key, holds base64 signature of non_sig_bytes() for a record
 pub const signing_non_sig_bytes_key: &str = "SIGNING:non-sig-bytes";
-// Reserved for all keys that match the pattern T-sig for all T
-pub const signing_sig_suffix: &str = "-sig";
 
 pub fn gen_identity(output_file: &str) {
   let rsa = Rsa::generate(2048).unwrap();
@@ -66,6 +64,9 @@ pub fn maybe_sign_record(config: &Config, rec: &mut Record) {
           match PKey::from_rsa(rsa_pair) {
             Ok(generic_key_pair) => {
               sign_rec(&generic_key_pair, rec);
+              if config.is_debug() && !config.server_extra_quiet {
+                println!("Record after signing: {:?}", rec.p);
+              }
             }
             Err(e) => {
               println!("Error making RSA keys generic: {}", e);
@@ -181,6 +182,14 @@ fn read_file(path: &Path) -> Result<Vec<u8>, std::io::Error> {
     let mut contents: Vec<u8> = Vec::new();
     file.read_to_end(&mut contents)?;
     Ok(contents)
+}
+
+pub fn has_sig_fields(rec: &Record) -> bool {
+  // We OR instead of AND because we want to prevent
+  // the possibility of a badly-configured server publishing partial
+  // invalid records which are then treated has "not having sig fields"
+  // when a public key is listed.
+  return rec.p.contains_key(signing_pub_key_key) || rec.p.contains_key(signing_non_sig_bytes_key);
 }
 
 pub fn is_valid_sig(rec: &Record) -> bool {
@@ -311,6 +320,6 @@ pub fn is_auth_by_server(rec: &Record, config: &Config) -> bool {
 // As reserved keys pile up, this method tracks reserved
 // key patterns which are not considered user data when signing.
 pub fn key_is_used_in_signing(key: &str) -> bool {
-  key == signing_pub_key_key || key == signing_non_sig_bytes_key || key.ends_with(signing_sig_suffix)
+  key == signing_pub_key_key || key == signing_non_sig_bytes_key
 }
 
