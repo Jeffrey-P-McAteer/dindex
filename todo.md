@@ -2,8 +2,6 @@
 
 _A short list of the next things being targeted for implementation_
 
- - Improve C and Python FFI to cover all capabilities
-
  - Use Python FFI to write small LAN CLI videogame - records record player names + positions + motion
 
  - Implement client signature verification
