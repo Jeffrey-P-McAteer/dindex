@@ -9,9 +9,18 @@ sys.path.append(os.path.abspath("../target/release/"))
 
 import libdindex as dindex
 
+# Used for UI
+from threading import Thread
+import tkinter # TODO ugh see https://medium.com/swlh/lets-write-a-chat-app-in-python-f6783a9ac170
+
 CONNECTING_USERS_QUERY = dindex.record({
   "action": "(?i)connect", # case insensitive match of "connect"
   "username": ".*"
+})
+MESSAGE_QUERY = dindex.record({
+  "action": "(?i)msg",
+  "username": ".*",
+  "message": ".*",
 })
 LEAVING_USERS_QUERY = dindex.record({
   "action": "(?i)leaving",
