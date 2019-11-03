@@ -21,6 +21,27 @@ See `ffi-generators/readme.md`
 
 `libssl` version 1.1+
 
+# Benchmarks
+
+```
+cargo bench
+```
+
+# Fuzzing
+
+
+```
+cargo install afl
+
+cargo afl build --release --features fuzzer --bin dindex-fuzzer
+
+sudo sh -c 'echo core >/proc/sys/kernel/core_pattern'
+sudo sh -c 'echo 1 | tee /sys/devices/system/cpu/cpu*/online'
+sudo sh -c 'echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor'
+
+AFL_SKIP_CPUFREQ=1 cargo afl fuzz -i ./fuzz-in/ -o ./target/url-fuzz-target target/release/dindex-fuzzer
+
+```
 
 # dIndex (old readme)
 

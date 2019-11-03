@@ -3,6 +3,16 @@ name = "dindex"
 version = "0.1.0"
 authors = ["Jeffrey McAteer <jeffrey.p.mcateer@gmail.com>"]
 edition = "2018"
+default-run = "dindex"
+
+[[bin]]
+name = "dindex"
+path = "src/main.rs"
+
+[[bin]]
+name = "dindex-fuzzer"
+path = "src/fuzzer.rs"
+required-features = ["fuzzer"]
 
 [lib]
 name = "dindex"
@@ -15,6 +25,8 @@ gui-client = ["web-view"]
 # To compile a .so which can be imported from python with "import libdindex as dindex" run:
 # cargo build --release --features "python-bindings"
 python-bindings = ["cpython"]
+# This feature flag is used to turn on the dependencies for our dindex-fuzzer binary
+fuzzer = ["afl"]
 
 # By default we have no gui client (it's expensive to build and mostly unecessary)
 default = []
@@ -90,4 +102,8 @@ version = "0.3"
 features = ["extension-module"]
 optional = true
 
+# Used for Fuzzing
+[dependencies.afl]
+version = "0.4"
+optional = true
 

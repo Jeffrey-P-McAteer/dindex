@@ -21,10 +21,10 @@
 extern crate bencher;
 use bencher::Bencher;
 
-use rand::prelude::*;
+//use rand::prelude::*;
 use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
- 
+
 use crossbeam_utils::thread;
 
 use std::time::Duration;
@@ -124,7 +124,7 @@ fn tcp_mem_insert_flood(b: &mut Bencher) {
     &dindex::args::Args::empty()
   );
   // Write details for temporary data
-  let port = 2001;
+  let port = rand::thread_rng().gen_range(2000, 2050);
   let localhost_server = dindex::config::Server {
     protocol: dindex::config::ServerProtocol::TCP,
     host: "127.0.0.1".to_string(),
@@ -132,6 +132,7 @@ fn tcp_mem_insert_flood(b: &mut Bencher) {
     path: "/tmp/dindex.test.socket".to_string(),
     max_latency_ms: 250,
     report_connect_errors: true,
+    name: "Test Server".to_string(),
   };
   test_config.servers = vec![localhost_server];
   test_config.server_port = port;
@@ -189,7 +190,7 @@ fn tcp_mem_query_over_1k(b: &mut Bencher) {
     &dindex::args::Args::empty()
   );
   // Write details for temporary data
-  let port = 2001;
+  let port = rand::thread_rng().gen_range(2000, 2050);
   let localhost_server = dindex::config::Server {
     protocol: dindex::config::ServerProtocol::TCP,
     host: "127.0.0.1".to_string(),
@@ -197,6 +198,7 @@ fn tcp_mem_query_over_1k(b: &mut Bencher) {
     path: "/tmp/dindex.test.socket".to_string(),
     max_latency_ms: 250,
     report_connect_errors: true,
+    name: "Test Server".to_string(),
   };
   test_config.servers = vec![localhost_server];
   test_config.server_port = port;
@@ -258,7 +260,7 @@ fn tcp_mem_query_over_100(b: &mut Bencher) {
     &dindex::args::Args::empty()
   );
   // Write details for temporary data
-  let port = 2001;
+  let port = rand::thread_rng().gen_range(2000, 2050);
   let localhost_server = dindex::config::Server {
     protocol: dindex::config::ServerProtocol::TCP,
     host: "127.0.0.1".to_string(),
@@ -266,6 +268,7 @@ fn tcp_mem_query_over_100(b: &mut Bencher) {
     path: "/tmp/dindex.test.socket".to_string(),
     max_latency_ms: 250,
     report_connect_errors: true,
+    name: "Test Server".to_string(),
   };
   test_config.servers = vec![localhost_server];
   test_config.server_port = port;
@@ -327,7 +330,7 @@ fn tcp_mem_query_over_10(b: &mut Bencher) {
     &dindex::args::Args::empty()
   );
   // Write details for temporary data
-  let port = 2001;
+  let port = rand::thread_rng().gen_range(2000, 2050);
   let localhost_server = dindex::config::Server {
     protocol: dindex::config::ServerProtocol::TCP,
     host: "127.0.0.1".to_string(),
@@ -335,6 +338,7 @@ fn tcp_mem_query_over_10(b: &mut Bencher) {
     path: "/tmp/dindex.test.socket".to_string(),
     max_latency_ms: 250,
     report_connect_errors: true,
+    name: "Test Server".to_string(),
   };
   test_config.servers = vec![localhost_server];
   test_config.server_port = port;
