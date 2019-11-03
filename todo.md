@@ -2,6 +2,8 @@
 
 _A short list of the next things being targeted for implementation_
 
+ - Rewrite signatures.rs to use 3rd-party binaries like `openssl` and `sshign`, falling back to a useful error if there are no tools installed. (this gives us portability to windorks systems)
+
  - Use Python FFI to write small LAN CLI videogame - records record player names + positions + motion
 
  - Implement client signature verification
