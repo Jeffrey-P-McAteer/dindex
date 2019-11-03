@@ -27,7 +27,7 @@ pub struct ScriptEngine {
 
 impl ScriptEngine {
   pub fn new() -> ScriptEngine {
-    let mut engine = Engine::new();
+    let engine = Engine::new();
     // Setup our API code
     
     return ScriptEngine {

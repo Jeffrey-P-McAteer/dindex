@@ -118,6 +118,7 @@ impl BrowserCmd {
       records: recs
     }
   }
+  #[allow(dead_code)]
   pub fn append(recs: Vec<record::Record>) -> BrowserCmd {
     BrowserCmd {
       action: String::new(),

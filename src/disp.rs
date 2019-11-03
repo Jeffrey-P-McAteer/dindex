@@ -2,7 +2,7 @@
 use crate::config;
 use crate::record;
 
-pub fn print_results(config: &config::Config, results: &Vec<record::Record>) {
+pub fn print_results(_config: &config::Config, results: &Vec<record::Record>) {
   // Sort by server name
   let mut results = results.clone();
   results.sort_by(|a, b| {
@@ -30,7 +30,7 @@ pub fn print_results(config: &config::Config, results: &Vec<record::Record>) {
   
 }
 
-pub fn print_results_ref(config: &config::Config, results: &Vec<&record::Record>) {
+pub fn print_results_ref(_config: &config::Config, results: &Vec<&record::Record>) {
   // Sort by server name
   let mut results = results.clone();
   results.sort_by(|a, b| {

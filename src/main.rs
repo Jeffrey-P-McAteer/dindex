@@ -27,15 +27,15 @@ use fork::{Fork};
 
 use dindex::config;
 use dindex::args;
-use dindex::record;
-use dindex::actions;
+//use dindex::record;
+//use dindex::actions;
 use dindex::actions::Action;
 
 use dindex::http_client;
 use dindex::server;
 use dindex::client;
-use dindex::data;
-use dindex::wire;
+//use dindex::data;
+//use dindex::wire;
 use dindex::disp;
 use dindex::signing;
 
@@ -89,7 +89,7 @@ fn main() {
         gui_client::run_sync(&conf);
       }
       else {
-        println!("This versin of dIndex was not compiled with GUI support.");
+        println!("This version of dIndex was not compiled with GUI support.");
         println!("To compile with GUI support run:");
         println!("  cargo build --release --features \"gui-client\"");
       }

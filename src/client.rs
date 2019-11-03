@@ -20,7 +20,7 @@
 use crossbeam_utils::thread;
 
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 use std::io::prelude::*;
 
 use crate::config::Config;
@@ -277,7 +277,7 @@ pub fn query_server_sync(config: &Config, server: &Server, query: &Record) -> Ve
   return results;
 }
 
-pub fn query_tcp_server_sync(config: &Config, server: &Server, query: &Record) -> Vec<Record> {
+pub fn query_tcp_server_sync(_config: &Config, server: &Server, query: &Record) -> Vec<Record> {
   use std::net::TcpStream;
   
   let mut results = vec![];
@@ -376,7 +376,7 @@ pub fn query_tcp_server_sync(config: &Config, server: &Server, query: &Record) -
   return results;
 }
 
-pub fn query_udp_server_sync(config: &Config, server: &Server, query: &Record) -> Vec<Record> {
+pub fn query_udp_server_sync(_config: &Config, server: &Server, query: &Record) -> Vec<Record> {
   use std::net::UdpSocket;
   
   let mut results = vec![];
@@ -490,7 +490,7 @@ pub fn query_unix_server_sync(config: &Config, server: &Server, query: &Record) 
 }
 
 #[cfg(unix)]
-pub fn query_unix_server_sync(config: &Config, server: &Server, query: &Record) -> Vec<Record> {
+pub fn query_unix_server_sync(_config: &Config, server: &Server, query: &Record) -> Vec<Record> {
   use std::os::unix::net::UnixStream;
   
   let mut results = vec![];
@@ -588,9 +588,9 @@ pub fn query_unix_server_sync(config: &Config, server: &Server, query: &Record) 
   return results;
 }
 
-pub fn query_websocket_server_sync(config: &Config, server: &Server, query: &Record) -> Vec<Record> {
+pub fn query_websocket_server_sync(_config: &Config, server: &Server, query: &Record) -> Vec<Record> {
   use websocket::client::ClientBuilder;
-  use websocket::{Message, OwnedMessage};
+  use websocket::{OwnedMessage};
   
   let mut results = vec![];
   

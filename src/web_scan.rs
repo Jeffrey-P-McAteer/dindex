@@ -35,7 +35,7 @@ pub fn scan_urls<F: Fn(Record) + Send + Copy>(config: &Config, args: &Args, urls
   }
 }
 
-pub fn scan_url<F: Fn(Record) + Send + Copy>(config: &Config, args: &Args, url: String, callback: F) {
+pub fn scan_url<F: Fn(Record) + Send + Copy>(_config: &Config, args: &Args, url: String, callback: F) {
   println!("Scanning \"{}\"", &url);
   
   let crawler = Crawler::new(url.clone())

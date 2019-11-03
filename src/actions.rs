@@ -72,7 +72,6 @@ pub fn action_from_str(s: &str) -> Action {
     "run_web_scan" => Action::run_web_scan,
     "gen_identity" => Action::gen_identity,
     "print_identity" => Action::print_identity,
-    "query" => Action::query,
     _ => Action::no_action,
   }
 }

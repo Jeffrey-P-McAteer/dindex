@@ -431,6 +431,7 @@ fn s_get_ctype_vec(be_verbose :bool, settings: &config::Config, array_name: &str
 
 // Low-level helper methods to parse data
 
+#[allow(dead_code)]
 fn s_get_str_vec(be_verbose :bool, settings: &config::Config, key: &str, default: Vec<String>) -> Vec<String> {
   match settings.get_array(key) {
     Ok(val_vec) => {

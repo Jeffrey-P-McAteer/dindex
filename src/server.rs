@@ -142,8 +142,6 @@ pub fn run_udp_sync(config: &Config, data: &Data) {
   use std::net::UdpSocket;
   use std::io::ErrorKind;
   use std::time::Duration;
-  use std::net::Ipv4Addr;
-  use std::net::Ipv6Addr;
   
   let ip_port = format!("{}:{}", config.server_ip, config.server_port);
   if !config.server_extra_quiet {
@@ -620,7 +618,7 @@ pub fn run_websocket_sync(config: &Config, data: &Data) {
 fn handle_websocket_conn(client: websocket::client::sync::Client<std::net::TcpStream>, config: &Config, data: &Data) {
   use websocket::message::OwnedMessage;
   
-  let (mut receiver, mut sender) = client.split().unwrap();
+  let (mut receiver, sender) = client.split().unwrap();
   
   match receiver.recv_message() {
     Err(e) => {
