@@ -68,7 +68,7 @@ num_cpus = "1.10.1"
 url-crawler = "0.3.0"
 webpage = "1.0.0"
 
-web-view = { git = "https://github.com/Jeffrey-P-McAteer/web-view.git", optional = true }
+web-view = { git = "https://github.com/Boscop/web-view.git", optional = true }
 #web-view = "0.5.2"
 
 fork = "0.1.8"
