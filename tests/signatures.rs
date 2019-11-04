@@ -83,20 +83,20 @@ fn sign_records() {
   
   // Signatures for messages should be identical no matter the order their keys are in
   assert_eq!(
-    known_record.p.get(dindex::signing::signing_non_sig_bytes_key).unwrap().to_string(),
-    known_record_diff_order.p.get(dindex::signing::signing_non_sig_bytes_key).unwrap().to_string()
+    known_record.p.get(dindex::signing::SIGNING_NON_SIG_BYTES_KEY).unwrap().to_string(),
+    known_record_diff_order.p.get(dindex::signing::SIGNING_NON_SIG_BYTES_KEY).unwrap().to_string()
   );
   
   // Signatures for different messages should be different
   assert_ne!(
-    known_record.p.get(dindex::signing::signing_non_sig_bytes_key).unwrap().to_string(),
-    unrelated_unsimilar_record.p.get(dindex::signing::signing_non_sig_bytes_key).unwrap().to_string()
+    known_record.p.get(dindex::signing::SIGNING_NON_SIG_BYTES_KEY).unwrap().to_string(),
+    unrelated_unsimilar_record.p.get(dindex::signing::SIGNING_NON_SIG_BYTES_KEY).unwrap().to_string()
   );
   
   // Signatures for different messages should be different
   assert_ne!(
-    known_record.p.get(dindex::signing::signing_non_sig_bytes_key).unwrap().to_string(),
-    unrelated_similar_record.p.get(dindex::signing::signing_non_sig_bytes_key).unwrap().to_string()
+    known_record.p.get(dindex::signing::SIGNING_NON_SIG_BYTES_KEY).unwrap().to_string(),
+    unrelated_similar_record.p.get(dindex::signing::SIGNING_NON_SIG_BYTES_KEY).unwrap().to_string()
   );
   
   let imposter_record = {
@@ -109,11 +109,11 @@ fn sign_records() {
     // This test ensures that copied signatures will not be valid for any permutation
     // other than the original document contents.
     
-    rec.p.insert(dindex::signing::signing_pub_key_key.to_string(),
-      known_record.p.get(dindex::signing::signing_pub_key_key).unwrap().to_string());
+    rec.p.insert(dindex::signing::SIGNING_PUB_KEY_KEY.to_string(),
+      known_record.p.get(dindex::signing::SIGNING_PUB_KEY_KEY).unwrap().to_string());
     
-    rec.p.insert(dindex::signing::signing_non_sig_bytes_key.to_string(),
-      known_record.p.get(dindex::signing::signing_non_sig_bytes_key).unwrap().to_string());
+    rec.p.insert(dindex::signing::SIGNING_NON_SIG_BYTES_KEY.to_string(),
+      known_record.p.get(dindex::signing::SIGNING_NON_SIG_BYTES_KEY).unwrap().to_string());
     
     rec
   };
