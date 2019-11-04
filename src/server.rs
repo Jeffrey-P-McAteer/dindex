@@ -713,6 +713,9 @@ fn handle_conn(from_client: mpsc::Receiver<WireData>, to_client: mpsc::Sender<Wi
       println!("Error receiving in handle_conn: {}", e);
     }
     Ok(wire_data) => {
+      if config.is_debug() {
+        println!("wire_data = {:?}", wire_data);
+      }
       // Reject all queries and published records
       // if the record appears signed (contains pub key || signature)
       // but the signature is invalid.

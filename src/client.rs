@@ -668,6 +668,23 @@ pub fn listen_sync<F: Fn(Record) -> ListenAction + Send + Copy>(config: &Config,
   }).unwrap();
 }
 
+pub fn listen_sync_with_timeout<F: Fn(Record) -> ListenAction + Send + Copy>(config: &Config, query: &Record, timeout_ms: usize, callback: F) {
+  thread::scope(|s| {
+    let mut handlers = vec![];
+    
+    for server in &config.servers {
+      let t_server = server.clone();
+      handlers.push(s.spawn(move |_| {
+        listen_server_sync_with_timeout(config, &t_server, query, timeout_ms, callback);
+      }));
+    }
+    
+    for h in handlers {
+      h.join().unwrap();
+    }
+  }).unwrap();
+}
+
 pub fn listen_server_sync<F: Fn(Record) -> ListenAction>(config: &Config, server: &Server, query: &Record, callback: F) {
   match server.protocol {
     ServerProtocol::TCP => {
@@ -684,6 +701,26 @@ pub fn listen_server_sync<F: Fn(Record) -> ListenAction>(config: &Config, server
     }
     ServerProtocol::MULTICAST => {
       listen_udp_server_sync(config, server, query, callback);
+    }
+  }
+}
+
+pub fn listen_server_sync_with_timeout<F: Fn(Record) -> ListenAction>(config: &Config, server: &Server, query: &Record, timeout_ms: usize, callback: F) {
+  match server.protocol {
+    ServerProtocol::TCP => {
+      listen_tcp_server_sync_with_timeout(config, server, query, timeout_ms, callback);
+    }
+    ServerProtocol::UDP => {
+      std::unimplemented!() // listen_udp_server_sync_with_timeout(config, server, query, timeout_ms, callback);
+    }
+    ServerProtocol::UNIX => {
+      std::unimplemented!() // listen_unix_server_sync_with_timeout(config, server, query, timeout_ms, callback);
+    }
+    ServerProtocol::WEBSOCKET => {
+      std::unimplemented!() // listen_websocket_server_sync_with_timeout(config, server, query, timeout_ms, callback);
+    }
+    ServerProtocol::MULTICAST => {
+      std::unimplemented!() // listen_udp_server_sync_with_timeout(config, server, query, timeout_ms, callback);
     }
   }
 }
@@ -779,6 +816,117 @@ pub fn listen_tcp_server_sync<F: Fn(Record) -> ListenAction>(_config: &Config, s
     }
     Err(e) => {
       println!("Error in listen_tcp_server_sync: {}", e);
+    }
+  }
+}
+
+pub fn listen_tcp_server_sync_with_timeout<F: Fn(Record) -> ListenAction>(_config: &Config, server: &Server, query: &Record, timeout_ms: usize, callback: F) {
+  use std::net::TcpStream;
+  use std::time::{SystemTime, UNIX_EPOCH};
+  
+  let wire_data = WireData {
+    action: Action::listen,
+    record: query.clone(),
+  };
+  
+  let ip_and_port = format!("{}:{}", server.host, server.port);
+  match TcpStream::connect(&ip_and_port) {
+    Ok(mut stream) => {
+      if let Err(e) = stream.set_read_timeout(Some(Duration::from_millis(256))) {
+        println!("Error setting TCP read timeout: {}", e);
+      }
+      if let Err(e) = stream.set_write_timeout(Some(Duration::from_millis(256))) {
+        println!("Error setting TCP write timeout: {}", e);
+      }
+      
+      if let Ok(bytes) = serde_cbor::to_vec(&wire_data) {
+        if let Err(e) = stream.write(&bytes) {
+          println!("Error sending WireData to server in listen_tcp_server_sync_with_timeout: {}", e);
+          return;
+        }
+        // Write the terminal 0xff byte
+        if let Err(e) = stream.write(&[0xff]) {
+          println!("Error sending WireData to server in listen_tcp_server_sync_with_timeout: {}", e);
+          return;
+        }
+      }
+      
+      // Read results until connection is closed
+      // We use 0xff ("break" stop code in the CBOR spec (rfc 7049))
+      // as a deliminator because it is least likely to interfere with CBOR stuff.
+      
+      let mut last_timeout_call_time = SystemTime::now();
+      let mut buff = [0; 16 * 1024];
+      let mut overflow_buff = vec![]; // Unused but read-in bytes are appended here
+      loop {
+        match stream.read(&mut buff) {
+          Ok(num_read) => {
+            let new_bytes_read = &buff[0..num_read];
+            let mut parse_buff = overflow_buff.clone();
+            parse_buff.extend_from_slice(new_bytes_read);
+            let parse_buff = parse_buff; // All unparsed bytes
+            // Jump to the next 0xff byte and parse data from 0..ff_i as a WireData object
+            if let Some(ff_i) = parse_buff.iter().position(|&r| r == 0xff) {
+              // There exists a 0xff at ff_i, use it to get the CBOR bytes
+              let mut cbor_slice = vec![];
+              cbor_slice.extend_from_slice(&parse_buff[0..ff_i]);
+              // Remove last 0xff byte from cbor_slice
+              if cbor_slice.last().eq(&Some(&0xff)) {
+                cbor_slice.pop();
+              }
+              if let Ok(wire_res) = serde_cbor::from_slice::<WireData>(&cbor_slice) {
+                //println!("wire_res={:?}", wire_res);
+                match wire_res.action {
+                  Action::end_of_results => {
+                    break;
+                  }
+                  Action::result => {
+                    if callback(wire_res.record) == ListenAction::EndListen {
+                      break;
+                    }
+                    last_timeout_call_time = SystemTime::now();
+                  }
+                  unexpected => {
+                    println!("Unexpected action from server, ignoring packet: {}", unexpected);
+                  }
+                }
+              }
+              // TODO improve below
+              // For the moment we always throw out bytes reguardless of if they were a valid WireData or not
+              overflow_buff = vec![];
+              overflow_buff.extend_from_slice(&parse_buff[ff_i+1..]);
+            }
+            else {
+              // There is no 0xff, we must read more data.
+              // For the moment store all data in overflow_buff
+              overflow_buff = parse_buff.clone();
+            }
+            
+          }
+          Err(_e) => {
+            // This is usually a timeout and we don't disconnect when listening
+            // We instead compute if timeout_ms has elapsed and if so we send
+            // an empty record to the listener to ensure they get called at least once every timeout_ms
+            match last_timeout_call_time.elapsed() {
+              Ok(elapsed) => {
+                if elapsed.as_millis() as usize > timeout_ms {
+                  if callback(Record::empty()) == ListenAction::EndListen {
+                    break;
+                  }
+                  last_timeout_call_time = SystemTime::now();
+                }
+              }
+              Err(e) => {
+                println!("Error getting elapsed time: {}", e);
+              }
+            }
+          }
+        }
+      }
+      
+    }
+    Err(e) => {
+      println!("Error in listen_tcp_server_sync_with_timeout: {}", e);
     }
   }
 }

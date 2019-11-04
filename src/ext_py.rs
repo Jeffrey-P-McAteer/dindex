@@ -48,15 +48,17 @@ dIndex python bindings.
   m.add(py, "record",
     py_fn!(py, get_record(record: Record = Record::empty() ) ))?;
   m.add(py, "record_display",
-    py_fn!(py, record_display(config: Config, record: Record = Record::empty() ) ))?;
+    py_fn!(py, record_display(config: Config, record: Record ) ))?;
   m.add(py, "record_display_vec",
     py_fn!(py, record_display_vec(config: Config, record: Vec<Record> = vec![] ) ))?;
   m.add(py, "client_query_sync",
-    py_fn!(py, client_query_sync(config: Config, record: Record = Record::empty() ) ))?;
+    py_fn!(py, client_query_sync(config: Config, record: Record ) ))?;
   m.add(py, "client_publish_sync",
-    py_fn!(py, client_publish_sync(config: Config, record: Record = Record::empty() ) ))?;
+    py_fn!(py, client_publish_sync(config: Config, record: Record ) ))?;
   m.add(py, "client_listen_sync",
-    py_fn!(py, client_listen_sync(config: Config, record: Record = Record::empty(), callback: PyObject ) ))?;
+    py_fn!(py, client_listen_sync(config: Config, record: Record, callback: PyObject ) ))?;
+  m.add(py, "client_listen_sync_with_timer",
+    py_fn!(py, client_listen_sync_with_timer(config: Config, record: Record, timeout_ms: usize, callback: PyObject ) ))?;
   Ok(())
 });
 
@@ -95,11 +97,21 @@ impl <'source> cpython::FromPyObject<'source> for Record {
     let mut map = HashMap::new();
     
     for (key, val) in py_dict.items(py) {
-      if let Ok(key) = key.extract(py) {
-        let key: String = key;
-        if let Ok(val) = val.extract(py) {
-          let val: String = val;
-          map.insert(key, val);
+      match key.extract(py) {
+        Ok(key) => {
+          let key: String = key;
+          match val.extract(py) {
+            Ok(val) => {
+              let val: String = val;
+              map.insert(key, val);
+            }
+            Err(e) => {
+              println!("[ dindex::ext_py ] Error extracting record val");
+            }
+          }
+        }
+        Err(e) => {
+          println!("[ dindex::ext_py ] Error extracting record key");
         }
       }
     }
@@ -439,6 +451,50 @@ fn client_listen_sync(py: Python, config: Config, rec: Record, callback: PyObjec
   
   py.allow_threads(|| {
     client::listen_sync(&config, &rec, |rec| {
+      if let Ok(callback) = callback.lock() {
+        // We must guarantee this can never happen in 2 threads at the same time.
+        // This guarantee holds because of the callback mutex.
+        let gil_guard = Python::acquire_gil();
+        let py = unsafe { Python::assume_gil_acquired() };
+        
+        let t = (rec, );
+        let py_res = callback.call(py, t, None);
+        if let Ok(py_obj) = py_res {
+          if let Ok(py_str) = py_obj.extract(py) {
+            let py_str: PyString = py_str;
+            // Parse string to client::ListenAction
+            return client::ListenAction::parse(format!("{}", py_str.to_string_lossy(py)).as_str());
+          }
+        }
+        
+        // If we can lock callback but we got some unknown/unexpected data, stop listening.
+        // TODO would it be better to throw a type error?
+        return client::ListenAction::EndListen;
+      }
+      // If we cannot lock callback continue listening
+      return client::ListenAction::Continue;
+    });
+  });
+  
+  Ok(py.None())
+}
+
+fn client_listen_sync_with_timer(py: Python, config: Config, rec: Record, timeout_ms: usize, callback: PyObject) -> PyResult<cpython::PyObject> {
+  use std::sync::{Arc, Mutex};
+  
+  if ! callback.is_callable(py) {
+    return Err(
+      cpython::PyErr::new::<cpython::exc::TypeError, String>(py,
+        "Error: last argument must be callable.".to_string()
+      )
+    );
+  }
+  
+  // This mutex allows us to make valid assumptions about the GIL
+  let callback = Arc::new(Mutex::new(callback));
+  
+  py.allow_threads(|| {
+    client::listen_sync_with_timeout(&config, &rec, timeout_ms, |rec| {
       if let Ok(callback) = callback.lock() {
         // We must guarantee this can never happen in 2 threads at the same time.
         // This guarantee holds because of the callback mutex.

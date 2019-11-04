@@ -101,6 +101,7 @@ impl Data {
               return true;
             }
           }
+          println!("Data is trimming a disconnected listener");
           return false;
         });
         // Remove over-capacity listeners
@@ -113,7 +114,7 @@ impl Data {
           }
           listeners.drain(0..num_over);
         }
-        //println!("listeners.len() = {}", listeners.len());
+        println!("listeners.len() = {}", listeners.len());
       }
       Err(e) => {
         println!("Error trimming listeners: {}", e);
