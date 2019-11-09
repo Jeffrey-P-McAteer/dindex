@@ -20,6 +20,8 @@
 use crossbeam_utils::thread;
 
 use std::time::Duration;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use dindex;
 
@@ -58,6 +60,9 @@ fn tcp_server_listen() {
   let mut data = dindex::data::Data::new(&test_config);
   let exit_flag = data.exit_flag.clone();
   
+  // We want to have at least 2 records received
+  let num_records_received = Arc::new(AtomicUsize::new(0));
+  
   // Spawn server and client threads to perform testing
   thread::scope(|s| {
     let mut handlers = vec![];
@@ -74,15 +79,38 @@ fn tcp_server_listen() {
         rec.p.insert("NAME".to_string(), "Lorem".to_string());
         rec
       };
+      
       dindex::client::listen_sync(&test_config, &query, |rec| {
+        
+        println!("listen_sync received {:?}", rec);
         
         let empty_s = String::new();
         let rec_url = rec.p.get(&"URL".to_string()).unwrap_or(&empty_s);
         assert_eq!(rec_url, "https://lipsum.com/");
         
-        return dindex::client::ListenAction::EndListen;
+        num_records_received.fetch_add(1, Ordering::SeqCst);
+        
+        // Now publish something "while" listening
+        {
+          // Publish a record which will cause test to fail if received
+          let rec_1 = {
+            let mut rec = dindex::record::Record::empty();
+            rec.p.insert("NAME".to_string(), "A record we should never see".to_string());
+            rec.p.insert("URL".to_string(), "https://example.org/".to_string());
+            rec
+          };
+          dindex::client::publish_sync(&test_config, &rec_1);
+        }
+        
+        if num_records_received.load(Ordering::SeqCst) > 2 {
+          return dindex::client::ListenAction::EndListen;
+        }
+        else {
+          return dindex::client::ListenAction::Continue;
+        }
       });
       
+      println!("Instructing server to exit");
       // Instruct server to exit, test completed
       exit_flag.store(true, std::sync::atomic::Ordering::Relaxed);
       // Send it network traffic to force eval of exit_flag
@@ -111,12 +139,20 @@ fn tcp_server_listen() {
         rec
       };
       dindex::client::publish_sync(&test_config, &rec_1);
+      
+      dindex::client::publish_sync(&test_config, &rec_1);
+      
+      for _ in 0..3 {
+        std::thread::sleep(Duration::from_millis(15));
+        dindex::client::publish_sync(&test_config, &rec_1);
+      }
+      
     }));
     
-    // If we don't get anything within 300ms the test fails
+    // If we don't get anything within 500ms the test fails
     handlers.push(s.spawn(|_| {
       // "wait" but break early if the exit flag is set to true (test success)
-      let mut remaining_iters = 30;
+      let mut remaining_iters = 50;
       while remaining_iters > 0 && !exit_flag.load(std::sync::atomic::Ordering::Relaxed) {
         std::thread::sleep(Duration::from_millis(10));
         remaining_iters -= 1;
@@ -137,6 +173,10 @@ fn tcp_server_listen() {
         // Finally fail the test due to timeout without receiving query
         assert!(false);
       }
+      
+      // If num_records_received is < 2 we also fail
+      assert!(num_records_received.load(std::sync::atomic::Ordering::Relaxed) > 1);
+      
     }));
     
     for h in handlers {
