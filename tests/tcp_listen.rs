@@ -53,7 +53,8 @@ fn tcp_server_listen() {
   test_config.server_listen_websocket = false;
   test_config.server_extra_quiet = true;
   test_config.verbosity_level = 0;
-  test_config.server_threads_in_flight = 18;
+  test_config.server_threads_in_flight = 16;
+  test_config.server_max_listeners = 16;
   
   // Tell server not to store records outside this process's memory
   test_config.server_datastore_uri = "memory://".to_string();

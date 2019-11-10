@@ -222,13 +222,11 @@ pub fn run_udp_sync(config: &Config, data: &Data) {
                   // Pop up to threads_to_join thread handles and join on them
                   for _ in 0..threads_to_join {
                     if let Some(h) = handlers.pop_front() {
-                      println!(" calling h.join()...");
                       if let Err(e) = h.join() {
                         println!("Error joining TCP thread: {:?}", e);
                       }
                     }
                   }
-                  println!(" Done joining threads!");
                 }
             }
             Err(ref err) if err.kind() != ErrorKind::WouldBlock => {
