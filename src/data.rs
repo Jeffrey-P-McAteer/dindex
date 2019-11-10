@@ -113,7 +113,7 @@ impl Data {
           }
           listeners.drain(0..num_over);
         }
-        println!("listeners.len() = {}", listeners.len());
+        //println!("listeners.len() = {}", listeners.len());
       }
       Err(e) => {
         println!("Error trimming listeners: {}", e);
@@ -121,9 +121,11 @@ impl Data {
     }
   }
   pub fn trim_all_listeners(&self) {
+    //println!("trim_all_listeners before .lock()");
     match self.listeners.lock() {
       Ok(mut listeners) => {
         for listener in listeners.iter() {
+          //println!("Sending WireData::end_of_results to listener.tx");
           if let Err(e) = listener.tx.send(WireData::end_of_results()) {
             println!("Error sending data to listener: {}", e);
           }

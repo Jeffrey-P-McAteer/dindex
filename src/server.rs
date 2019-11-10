@@ -103,25 +103,34 @@ pub fn run_tcp_sync(config: &Config, data: &Data) {
           }));
           // Housekeeping
           if handlers.len() > config.server_threads_in_flight {
+            // First try to avoid deadlocks by calling trim_invalid_listeners
+            handlers.push_back(s.spawn(|_| {
+              data.trim_invalid_listeners();
+            }));
             let threads_to_join = (handlers.len() as f64 * config.server_threads_in_flight_fraction) as usize;
             // Pop up to threads_to_join thread handles and join on them
             for _ in 0..threads_to_join {
               if let Some(h) = handlers.pop_front() {
+                println!(" calling h.join()...");
                 if let Err(e) = h.join() {
                   println!("Error joining TCP thread: {:?}", e);
                 }
               }
             }
+            println!(" Done joining threads!");
           }
           // Further housekeeping
           if data.exit_flag.load(Ordering::Relaxed) {
             if config.is_debug() {
-              println!("tcp exiting due to data.exit_flag");
-              data.trim_all_listeners();
+              if !config.server_extra_quiet {
+                println!("tcp exiting due to data.exit_flag");
+              }
             }
             break;
           }
         }
+        
+        data.trim_all_listeners();
         
         for h in handlers {
           h.join().unwrap();
@@ -203,12 +212,15 @@ pub fn run_udp_sync(config: &Config, data: &Data) {
         // Housekeeping after every connection is closed
         if data.exit_flag.load(Ordering::Relaxed) {
           if config.is_debug() {
-            println!("udp exiting due to data.exit_flag");
-            data.trim_all_listeners();
+            if !config.server_extra_quiet {
+              println!("udp exiting due to data.exit_flag");
+            }
           }
           break;
         }
       }
+      
+      data.trim_all_listeners();
       
     }
     Err(e) => {
@@ -250,6 +262,10 @@ pub fn run_unix_sync(config: &Config, data: &Data) {
           }));
           // Housekeeping
           if handlers.len() > config.server_threads_in_flight {
+            // Helps avoid deadlocks
+            handlers.push_back(s.spawn(|_| {
+              data.trim_invalid_listeners();
+            }));
             let threads_to_join = (handlers.len() as f64 * config.server_threads_in_flight_fraction) as usize;
             // Pop up to threads_to_join thread handles and join on them
             for _ in 0..threads_to_join {
@@ -263,11 +279,15 @@ pub fn run_unix_sync(config: &Config, data: &Data) {
           // Further housekeeping
           if data.exit_flag.load(Ordering::Relaxed) {
             if config.is_debug() {
-              println!("Unix exiting due to data.exit_flag");
+              if !config.server_extra_quiet {
+                println!("Unix exiting due to data.exit_flag");
+              }
             }
             break;
           }
         }
+        
+        data.trim_all_listeners();
         
         for h in handlers {
           h.join().unwrap();
@@ -581,6 +601,10 @@ pub fn run_websocket_sync(config: &Config, data: &Data) {
           }));
           // Housekeeping
           if handlers.len() > config.server_threads_in_flight {
+            // Helps avoid deadlocks
+            handlers.push_back(s.spawn(|_| {
+              data.trim_invalid_listeners();
+            }));
             let threads_to_join = (handlers.len() as f64 * config.server_threads_in_flight_fraction) as usize;
             // Pop up to threads_to_join thread handles and join on them
             for _ in 0..threads_to_join {
@@ -595,13 +619,14 @@ pub fn run_websocket_sync(config: &Config, data: &Data) {
           if data.exit_flag.load(Ordering::Relaxed) {
             if config.is_debug() {
               if !config.server_extra_quiet {
-                println!("tcp exiting due to data.exit_flag");
+                println!("websocket exiting due to data.exit_flag");
               }
-              data.trim_all_listeners();
             }
             break;
           }
         }
+        
+        data.trim_all_listeners();
         
         for h in handlers {
           h.join().unwrap();
@@ -712,7 +737,7 @@ fn handle_conn(from_client: mpsc::Receiver<WireData>, to_client: mpsc::Sender<Wi
       println!("Error receiving in handle_conn: {}", e);
     }
     Ok(wire_data) => {
-      if config.is_debug() {
+      if config.is_debug() && !config.server_extra_quiet {
         println!("wire_data = {:?}", wire_data);
       }
       // Reject all queries and published records

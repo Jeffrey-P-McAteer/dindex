@@ -52,6 +52,8 @@ fn tcp_server_listen() {
   test_config.server_listen_unix = false;
   test_config.server_listen_websocket = false;
   test_config.server_extra_quiet = true;
+  test_config.verbosity_level = 0;
+  test_config.server_threads_in_flight = 18;
   
   // Tell server not to store records outside this process's memory
   test_config.server_datastore_uri = "memory://".to_string();
@@ -82,7 +84,7 @@ fn tcp_server_listen() {
       
       dindex::client::listen_sync(&test_config, &query, |rec| {
         
-        println!("listen_sync received {:?}", rec);
+        //println!("listen_sync received {:?}", rec);
         
         let empty_s = String::new();
         let rec_url = rec.p.get(&"URL".to_string()).unwrap_or(&empty_s);
@@ -171,6 +173,7 @@ fn tcp_server_listen() {
         dindex::client::query_sync(&test_config, &query);
         
         // Finally fail the test due to timeout without receiving query
+        println!("Failing test due to timeout");
         assert!(false);
       }
       

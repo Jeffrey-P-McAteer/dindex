@@ -81,6 +81,7 @@ pub struct Config {
   // many useful messages. This is used to silence benchmark tests.
   pub server_extra_quiet: bool,
   
+  // MUST be < server_threads_in_flight
   pub server_max_listeners: usize,
   
   pub server_pid_file: String,
@@ -237,7 +238,7 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
   }
   
   // Now read in, setting defaults where empty
-  return Config {
+  let mut raw_config = Config {
     ctypes: s_get_ctype_vec(be_verbose, &settings, "ctypes"),
     client_private_key_file: s_get_str(be_verbose, &settings, "client_private_key_file", ""),
     client_enable_http_ui: s_get_bool(be_verbose, &settings, "client_enable_http_ui", true),
@@ -257,7 +258,7 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
     server_listen_websocket: s_get_bool(be_verbose, &settings, "server_listen_websocket", true),
     server_listen_multicast: s_get_bool(be_verbose, &settings, "server_listen_multicast", true),
     server_extra_quiet: s_get_bool(be_verbose, &settings, "server_extra_quiet", false),
-    server_max_listeners: s_get_i64(be_verbose, &settings, "server_max_listeners", 100) as usize,
+    server_max_listeners: s_get_i64(be_verbose, &settings, "server_max_listeners", 8) as usize,
     server_pid_file: s_get_str(be_verbose, &settings, "server_pid_file", "/tmp/dindex.pid"),
     server_ip: s_get_str(be_verbose, &settings, "server_ip", "0.0.0.0"),
     server_unix_socket: s_get_str(be_verbose, &settings, "server_unix_socket", "/tmp/dindex.sock"),
@@ -270,6 +271,18 @@ pub fn get_config_detail(be_verbose: bool, check_etc: bool, check_user: bool, ch
     server_max_unauth_websockets: s_get_i64(be_verbose, &settings, "server_max_unauth_websockets", 100) as usize,
     server_num_record_pools: s_get_i64(be_verbose, &settings, "server_num_record_pools", 8) as usize,
   };
+  
+  // Enforce some important invariants
+  if raw_config.server_max_listeners > raw_config.server_threads_in_flight {
+    println!(
+      "[ Invalid Config ] server_max_listeners ({}) > server_threads_in_flight ({}), setting server_threads_in_flight = server_max_listeners.",
+      raw_config.server_max_listeners, raw_config.server_threads_in_flight
+    );
+    raw_config.server_threads_in_flight = raw_config.server_max_listeners;
+  }
+  
+  
+  return raw_config;
 }
 
 // High-level helper methods
