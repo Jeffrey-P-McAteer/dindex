@@ -49,7 +49,8 @@ fn udp_server_listen() {
   test_config.server_listen_udp = true;
   test_config.server_listen_unix = false;
   test_config.server_listen_websocket = false;
-  //test_config.server_extra_quiet = true;
+  test_config.server_extra_quiet = true;
+  test_config.verbosity_level = 0;
   
   // Tell server not to store records outside this process's memory
   test_config.server_datastore_uri = "memory://".to_string();
@@ -113,10 +114,10 @@ fn udp_server_listen() {
       dindex::client::publish_sync(&test_config, &rec_1);
     }));
     
-    // If we don't get anything within 300ms the test fails
+    // If we don't get anything within 500ms the test fails
     handlers.push(s.spawn(|_| {
       // "wait" but break early if the exit flag is set to true (test success)
-      let mut remaining_iters = 30;
+      let mut remaining_iters = 50;
       while remaining_iters > 0 && !exit_flag.load(std::sync::atomic::Ordering::Relaxed) {
         std::thread::sleep(Duration::from_millis(10));
         remaining_iters -= 1;

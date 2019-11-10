@@ -94,7 +94,7 @@ pub fn run_tcp_sync(config: &Config, data: &Data) {
   match TcpListener::bind(&ip_port) {
     Ok(listener) => {
       thread::scope(|s| {
-        let mut handlers = VecDeque::new();
+        let mut handlers = VecDeque::new(); //
         handlers.reserve_exact(config.server_threads_in_flight + 4);
         
         for stream in listener.incoming() {
@@ -150,6 +150,7 @@ pub fn run_udp_sync(config: &Config, data: &Data) {
   use std::net::UdpSocket;
   use std::io::ErrorKind;
   use std::time::Duration;
+  use std::collections::VecDeque;
   
   let ip_port = format!("{}:{}", config.server_ip, config.server_port);
   if !config.server_extra_quiet {
@@ -187,40 +188,72 @@ pub fn run_udp_sync(config: &Config, data: &Data) {
         println!("Error setting UDP write timeout: {}", e);
       }
       
-      let mut incoming_buf = [0u8; 65536];
-      
-      while !data.exit_flag.load(Ordering::Relaxed) {
-        match socket.recv_from(&mut incoming_buf) {
-          Ok((num_bytes, src)) => {
-              let packet = incoming_buf[0..num_bytes].to_vec();
-              if config.is_debug() {
-                if !config.server_extra_quiet {
-                  println!("UDP: {} bytes from {:?}", num_bytes, src);
+      thread::scope(|s| {
+        let mut handlers = VecDeque::new();
+        handlers.reserve_exact(config.server_threads_in_flight + 4);
+        
+        let mut incoming_buf = [0u8; 65536];
+        
+        while !data.exit_flag.load(Ordering::Relaxed) {
+          match socket.recv_from(&mut incoming_buf) {
+            Ok((num_bytes, src)) => {
+                let packet = incoming_buf[0..num_bytes].to_vec();
+                if config.is_debug() {
+                  if !config.server_extra_quiet {
+                    println!("UDP: {} bytes from {:?}", num_bytes, src);
+                  }
                 }
-              }
-              handle_udp_conn(&mut socket, src, packet, config, data);
-          }
-          Err(ref err) if err.kind() != ErrorKind::WouldBlock => {
-              println!("UDP Server error: {}", err);
-              break;
-          }
-          Err(_e) => {
-              // Usually OS error 11
-              //println!("Unknown error: {}", e);
-          }
-        }
-        // Housekeeping after every connection is closed
-        if data.exit_flag.load(Ordering::Relaxed) {
-          if config.is_debug() {
-            if !config.server_extra_quiet {
-              println!("udp exiting due to data.exit_flag");
+                if let Ok(mut socket) = socket.try_clone() {
+                  handlers.push_back(s.spawn(move |_| {
+                    handle_udp_conn(&mut socket, src, packet, config, data);
+                  }));
+                }
+                else {
+                  // Fall back to sync op
+                  handle_udp_conn(&mut socket, src, packet, config, data);
+                }
+                // Housekeeping
+                if handlers.len() > config.server_threads_in_flight {
+                  // First try to avoid deadlocks by calling trim_invalid_listeners
+                  handlers.push_back(s.spawn(|_| {
+                    data.trim_invalid_listeners();
+                  }));
+                  let threads_to_join = (handlers.len() as f64 * config.server_threads_in_flight_fraction) as usize;
+                  // Pop up to threads_to_join thread handles and join on them
+                  for _ in 0..threads_to_join {
+                    if let Some(h) = handlers.pop_front() {
+                      println!(" calling h.join()...");
+                      if let Err(e) = h.join() {
+                        println!("Error joining TCP thread: {:?}", e);
+                      }
+                    }
+                  }
+                  println!(" Done joining threads!");
+                }
+            }
+            Err(ref err) if err.kind() != ErrorKind::WouldBlock => {
+                println!("UDP Server error: {}", err);
+                break;
+            }
+            Err(_e) => {
+                // Usually OS error 11
+                //println!("Unknown error: {}", e);
             }
           }
-          break;
+          // Housekeeping after every connection is closed
+          if data.exit_flag.load(Ordering::Relaxed) {
+            if config.is_debug() {
+              if !config.server_extra_quiet {
+                println!("udp exiting due to data.exit_flag");
+              }
+            }
+            break;
+          }
         }
-      }
-      
-      data.trim_all_listeners();
+        
+        data.trim_all_listeners();
+        
+      }).unwrap();
       
     }
     Err(e) => {
