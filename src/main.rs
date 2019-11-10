@@ -1,4 +1,4 @@
-/**
+/*
  *  dIndex - a distributed, organic, mechanical index for everything
  *  Copyright (C) 2019  Jeffrey McAteer <jeffrey.p.mcateer@gmail.com>
  *  
