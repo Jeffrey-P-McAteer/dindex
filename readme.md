@@ -165,3 +165,20 @@ sudo sh -c 'echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_
 AFL_SKIP_CPUFREQ=1 cargo afl fuzz -i ./fuzz-in/ -o ./target/url-fuzz-target target/release/dindex-fuzzer
 
 ```
+
+# Unimplemented things:
+
+```
+grep -rin unimplemented src
+```
+
+```
+src/client.rs:713:      std::unimplemented!() // listen_udp_server_sync_with_timeout(config, server, query, timeout_ms, callback);
+src/client.rs:716:      std::unimplemented!() // listen_unix_server_sync_with_timeout(config, server, query, timeout_ms, callback);
+src/client.rs:719:      std::unimplemented!() // listen_websocket_server_sync_with_timeout(config, server, query, timeout_ms, callback);
+src/client.rs:722:      std::unimplemented!() // listen_udp_server_sync_with_timeout(config, server, query, timeout_ms, callback);
+src/http/http_app.js:4:  alert("Configuration currently unimplemented.");
+```
+
+Mostly listening logic with a timeout (this makes the python chat example less amazing)
+
