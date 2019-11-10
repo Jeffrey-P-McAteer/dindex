@@ -112,7 +112,7 @@ if __name__ == '__main__':
     
     messages_frame = tkinter.Frame(top)
     my_msg = tkinter.StringVar()  # For the messages to be sent.
-    my_msg.set("Type your messages here.")
+    my_msg.set("")
     scrollbar = tkinter.Scrollbar(messages_frame)  # To navigate through past messages.
     
     msg_list = tkinter.Listbox(messages_frame, height=15, width=50, yscrollcommand=scrollbar.set)
@@ -125,8 +125,8 @@ if __name__ == '__main__':
       msg = my_msg.get()
       my_msg.set("")  # Clears input field.
       publish_msg_rec(config, our_username, msg)
-      # Should not be necessary
-      msg_list.insert(tkinter.END, "{}: {}".format(our_username, msg))
+      # Should not be necessary; we will receive our own published record
+      # msg_list.insert(tkinter.END, "{}: {}".format(our_username, msg))
     
     entry_field = tkinter.Entry(top, textvariable=my_msg)
     entry_field.bind("<Return>", on_user_enter)
@@ -137,6 +137,9 @@ if __name__ == '__main__':
     
     # Create new thread to listen to incoming chat data
     def incoming_chat_data_handler():
+      # Used to de-dupe when receiving multiple copies of records.
+      recent_chat_messages = []
+      
       def on_any_action(rec):
         global WINDOW_CLOSED
         
@@ -160,7 +163,10 @@ if __name__ == '__main__':
             
           else:
             print("User {} said: {}".format(rec["username"], rec["message"]))
-            msg_list.insert(tkinter.END, "{}: {}".format(rec["username"], rec["message"]))
+            msg_list_val = "{}: {}".format(rec["username"], rec["message"]);
+            if not msg_list_val in recent_chat_messages:
+              msg_list.insert(tkinter.END, msg_list_val)
+              recent_chat_messages.append(msg_list_val)
             
           return "Continue"
       
